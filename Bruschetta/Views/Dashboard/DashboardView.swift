@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Charts
 
 struct DashboardView: View {
     @Query private var incomes: [Income]
@@ -8,6 +7,7 @@ struct DashboardView: View {
     @Query private var transactions: [Transaction]
 
     @StateObject private var viewModel = DashboardViewModel()
+    @State private var showAddTransaction = false
 
     private var income: Income? { incomes.first }
 
@@ -22,12 +22,20 @@ struct DashboardView: View {
                     BillsDueCard(bills: viewModel.billsDueThisPeriod, period: viewModel.currentPeriod)
 
                     BillAllocationCard(totalMonthlyBills: viewModel.totalMonthlyBills, allocationPerPaycheck: viewModel.billAllocationPerPaycheck, payCadenceDisplayName: viewModel.payCadenceDisplayName)
-
-                    SpendingByCategoryCard(items: viewModel.spendingByCategory)
                 }
                 .padding()
             }
-            .navigationTitle("Dashboard")
+            .navigationTitle("Finances")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showAddTransaction = true } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showAddTransaction) {
+                AddTransactionView()
+            }
             .refreshable {
                 refresh()
             }
@@ -40,7 +48,7 @@ struct DashboardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Next payday is in \(viewModel.daysUntilNextPay) day\(viewModel.daysUntilNextPay == 1 ? "" : "s")")
+            Text(viewModel.daysUntilNextPay == 1 ? "Payday is tomorrow!" : "Next payday is in \(viewModel.daysUntilNextPay) days")
                 .font(.title2.bold())
             Text(viewModel.nextPayDate.formatted(date: .long, time: .omitted))
                 .font(.subheadline)
@@ -192,34 +200,3 @@ private struct BillAllocationCard: View {
     }
 }
 
-private struct SpendingByCategoryCard: View {
-    let items: [(category: Category, amount: Double)]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Spending by Category")
-                .font(.headline)
-
-            if items.isEmpty {
-                Text("No spending recorded this period.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                Chart {
-                    ForEach(items, id: \.category.name) { item in
-                        BarMark(
-                            x: .value("Amount", item.amount),
-                            y: .value("Category", item.category.name)
-                        )
-                        .foregroundStyle(Color(hex: item.category.colorHex))
-                    }
-                }
-                .frame(height: CGFloat(items.count) * 36 + 20)
-            }
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
-    }
-}

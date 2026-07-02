@@ -23,16 +23,18 @@ struct PayPeriod {
 enum PayPeriodCalculator {
     static func currentPayPeriod(nextPayDate: Date, cadence: PayCadence) -> PayPeriod {
         let cal = Calendar.current
-        let today = Date()
+        let today = cal.startOfDay(for: Date())
 
-        // Walk back to find the most recent pay date on or before today
-        var periodStart = nextPayDate
+        // Normalize to midnight so time-of-day in stored nextPayDate never affects comparisons
+        var periodStart = cal.startOfDay(for: nextPayDate)
         while periodStart > today {
             periodStart = previousPayDate(before: periodStart, cadence: cadence)
         }
 
-        let periodEnd = nextDate(after: periodStart, cadence: cadence, calendar: cal)
-            .addingTimeInterval(-1) // end of previous day
+        // End of period = 23:59:59 on the day before the next pay date
+        let nextPay = nextDate(after: periodStart, cadence: cadence, calendar: cal)
+        let periodEndDay = cal.date(byAdding: .day, value: -1, to: nextPay) ?? nextPay
+        let periodEnd = cal.date(bySettingHour: 23, minute: 59, second: 59, of: periodEndDay) ?? periodEndDay
 
         return PayPeriod(start: periodStart, end: periodEnd)
     }
@@ -44,10 +46,40 @@ enum PayPeriodCalculator {
     static func daysUntilNextPay(nextPayDate: Date, cadence: PayCadence) -> Int {
         let period = currentPayPeriod(nextPayDate: nextPayDate, cadence: cadence)
         let cal = Calendar.current
-        // The actual next pay is period.end + 1 second
-        let next = period.end.addingTimeInterval(1)
-        let diff = cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: next))
+        let today = cal.startOfDay(for: Date())
+        // Next pay day is the day after the period ends
+        let nextPay = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: period.end)) ?? period.end
+        let diff = cal.dateComponents([.day], from: today, to: nextPay)
         return max(0, diff.day ?? 0)
+    }
+
+    /// Returns the last `count` completed pay periods (oldest first), not including the current period.
+    static func previousPayPeriods(nextPayDate: Date, cadence: PayCadence, count: Int) -> [PayPeriod] {
+        let current = currentPayPeriod(nextPayDate: nextPayDate, cadence: cadence)
+        var periods: [PayPeriod] = []
+        var anchor = current.start
+        for _ in 0 ..< count {
+            let end = anchor.addingTimeInterval(-1)
+            let start = previousPayDate(before: anchor, cadence: cadence)
+            periods.append(PayPeriod(start: start, end: end))
+            anchor = start
+        }
+        return periods.reversed()
+    }
+
+    /// Returns the last `count` calendar months (oldest first), including the current partial month.
+    static func calendarMonths(count: Int) -> [PayPeriod] {
+        let cal = Calendar.current
+        let today = Date()
+        var result: [PayPeriod] = []
+        for offset in (0 ..< count).reversed() {
+            guard
+                let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: cal.date(byAdding: .month, value: -offset, to: today)!)),
+                let monthEnd = cal.date(byAdding: DateComponents(month: 1, second: -1), to: monthStart)
+            else { continue }
+            result.append(PayPeriod(start: monthStart, end: monthEnd))
+        }
+        return result
     }
 
     // MARK: - Private

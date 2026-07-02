@@ -2,26 +2,33 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @State private var showOnboarding = false
 
     var body: some View {
         NavigationStack {
             List {
                 Section("Income") {
-                    NavigationLink("Income") {
+                    NavigationLink("Edit Income") {
                         IncomeSettingsView()
                     }
                 }
 
                 Section("Bills") {
-                    NavigationLink("Bills") {
+                    NavigationLink("Edit Bills") {
                         BillsSettingsView()
                     }
                 }
 
                 Section("Categories") {
-                    NavigationLink("Categories") {
+                    NavigationLink("Edit Categories") {
                         CategoriesSettingsView()
+                    }
+                }
+
+                Section("Appearance") {
+                    Toggle(isOn: $isDarkMode) {
+                        Label("Dark Mode", systemImage: isDarkMode ? "moon.fill" : "sun.max.fill")
                     }
                 }
 

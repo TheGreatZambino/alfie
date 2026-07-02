@@ -7,38 +7,23 @@ struct ContentView: View {
     @Query private var categories: [Category]
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
-    @State private var selectedTab: Int = 0
-    @State private var showAddTransaction = false
     @State private var showOnboarding = false
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView {
             DashboardView()
                 .tabItem { Label("Dashboard", systemImage: "house") }
-                .tag(0)
 
             TransactionListView()
                 .tabItem { Label("Transactions", systemImage: "list.bullet") }
-                .tag(1)
 
-            Color.clear
-                .tabItem { Label("Add", systemImage: "plus.circle.fill") }
-                .tag(2)
+            TrendsView()
+                .tabItem { Label("Trends", systemImage: "chart.bar.xaxis") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(3)
 
             // Reserved stub slot for future Workout tab (hidden).
-        }
-        .onChange(of: selectedTab) { _, newValue in
-            if newValue == 2 {
-                showAddTransaction = true
-                selectedTab = 0
-            }
-        }
-        .sheet(isPresented: $showAddTransaction) {
-            AddTransactionView()
         }
         .sheet(isPresented: $showOnboarding, onDismiss: {
             hasCompletedOnboarding = true

@@ -18,10 +18,13 @@ struct BudgetAppApp: App {
         }
     }()
 
+    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .tint(Color.appAccent)
+                .preferredColorScheme(isDarkMode ? .dark : .light)
         }
         .modelContainer(sharedModelContainer)
     }

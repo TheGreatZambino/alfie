@@ -4,7 +4,7 @@ import SwiftData
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(filter: #Predicate<Category> { $0.typeRaw == "spending" }, sort: \Category.sortOrder)
+    @Query(filter: #Predicate<Category> { $0.typeRaw == "spending" }, sort: \Category.name)
     private var categories: [Category]
 
     var editingTransaction: Transaction?
@@ -13,6 +13,7 @@ struct AddTransactionView: View {
     @State private var selectedCategory: Category?
     @State private var date: Date = Date()
     @State private var note: String = ""
+    @State private var categoryExpanded: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -26,9 +27,14 @@ struct AddTransactionView: View {
                         DatePicker("Date", selection: $date, displayedComponents: .date)
                             .padding(.horizontal)
 
-                        TextField("Note (optional)", text: $note)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(.horizontal)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Note")
+                                .font(.headline)
+                            TextField("Optional", text: $note)
+                                .textFieldStyle(.roundedBorder)
+                                .tint(.primary)
+                        }
+                        .padding(.horizontal)
                     }
                     .padding(.top, 20)
                 }
@@ -106,27 +112,73 @@ struct AddTransactionView: View {
 
     private var categoryGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Category")
-                .font(.headline)
-                .padding(.horizontal)
+            // Header row — tapping toggles expanded/collapsed
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    categoryExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Category")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 16) {
-                ForEach(categories) { category in
-                    CategoryTile(category: category, isSelected: selectedCategory == category) {
-                        selectedCategory = category
+                    Spacer()
+
+                    if let cat = selectedCategory, !categoryExpanded {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color(hex: cat.colorHex))
+                                .frame(width: 20, height: 20)
+                                .overlay {
+                                    Image(systemName: cat.icon)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white)
+                                }
+                            Text(cat.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if selectedCategory == nil && !categoryExpanded {
+                        Text("Select")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Image(systemName: categoryExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+            }
+            .buttonStyle(.plain)
+
+            if categoryExpanded {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 16) {
+                    ForEach(categories) { category in
+                        CategoryTile(category: category, isSelected: selectedCategory == category) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedCategory = category
+                                categoryExpanded = false
+                            }
+                        }
                     }
                 }
+                .padding(.horizontal)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .padding(.horizontal)
         }
     }
 
     private func loadEditingTransaction() {
-        guard let editingTransaction else { return }
-        amountText = String(format: "%.2f", editingTransaction.amount)
-        selectedCategory = editingTransaction.category
-        date = editingTransaction.date
-        note = editingTransaction.note ?? ""
+        if let editingTransaction {
+            amountText = String(format: "%.2f", editingTransaction.amount)
+            selectedCategory = editingTransaction.category
+            date = editingTransaction.date
+            note = editingTransaction.note ?? ""
+        } else {
+            categoryExpanded = true
+        }
     }
 
     private func save() {

@@ -25,13 +25,8 @@ struct TransactionRowView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(transaction.amount, format: .currency(code: "USD"))
-                    .font(.body.weight(.medium))
-                Text(transaction.date.formatted(date: .omitted, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Text(transaction.amount, format: .currency(code: "USD"))
+                .font(.body.weight(.medium))
         }
         .padding(.vertical, 4)
     }

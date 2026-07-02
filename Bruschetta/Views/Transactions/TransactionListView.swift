@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 struct TransactionListView: View {
     @Environment(\.modelContext) private var modelContext
@@ -8,12 +9,22 @@ struct TransactionListView: View {
 
     @StateObject private var viewModel = TransactionViewModel()
     @State private var showFilter = false
+    @State private var showAddTransaction = false
     @State private var editingTransaction: Transaction?
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(viewModel.groupedByDate(viewModel.filtered(transactions)), id: \.label) { group in
+                let filtered = viewModel.filtered(transactions)
+                if !filtered.isEmpty {
+                    Section {
+                        SpendingByCategoryCard(items: spendingByCategory(from: filtered))
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
+                }
+
+                ForEach(viewModel.groupedByDate(filtered), id: \.label) { group in
                     Section(group.label) {
                         ForEach(group.items) { transaction in
                             TransactionRowView(transaction: transaction)
@@ -33,12 +44,18 @@ struct TransactionListView: View {
             .navigationTitle("Transactions")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showFilter = true
-                    } label: {
+                    Button { showAddTransaction = true } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showFilter = true } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
                 }
+            }
+            .sheet(isPresented: $showAddTransaction) {
+                AddTransactionView()
             }
             .sheet(isPresented: $showFilter) {
                 TransactionFilterView(viewModel: viewModel, categories: categories)
@@ -57,6 +74,16 @@ struct TransactionListView: View {
     private func delete(_ transaction: Transaction) {
         modelContext.delete(transaction)
         try? modelContext.save()
+    }
+
+    private func spendingByCategory(from txns: [Transaction]) -> [(category: Category, amount: Double)] {
+        var grouped: [ObjectIdentifier: (category: Category, amount: Double)] = [:]
+        for t in txns {
+            guard let category = t.category else { continue }
+            let key = ObjectIdentifier(category)
+            grouped[key, default: (category, 0)].amount += t.amount
+        }
+        return grouped.values.sorted { $0.amount > $1.amount }
     }
 }
 
