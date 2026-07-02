@@ -13,60 +13,59 @@ struct TransactionListView: View {
     @State private var editingTransaction: Transaction?
 
     var body: some View {
-        NavigationStack {
-            List {
-                let filtered = viewModel.filtered(transactions)
-                if !filtered.isEmpty {
-                    Section {
-                        SpendingByCategoryCard(items: spendingByCategory(from: filtered))
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                    }
+        List {
+            let filtered = viewModel.filtered(transactions)
+            if !filtered.isEmpty {
+                Section {
+                    SpendingByCategoryCard(items: spendingByCategory(from: filtered))
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
+            }
 
-                ForEach(viewModel.groupedByDate(filtered), id: \.label) { group in
-                    Section(group.label) {
-                        ForEach(group.items) { transaction in
-                            TransactionRowView(transaction: transaction)
-                                .contentShape(Rectangle())
-                                .onTapGesture { editingTransaction = transaction }
-                                .swipeActions {
-                                    Button(role: .destructive) {
-                                        delete(transaction)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
+            ForEach(viewModel.groupedByDate(filtered), id: \.label) { group in
+                Section(group.label) {
+                    ForEach(group.items) { transaction in
+                        TransactionRowView(transaction: transaction)
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingTransaction = transaction }
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    delete(transaction)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
-                        }
+                            }
                     }
                 }
             }
-            .navigationTitle("Transactions")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showAddTransaction = true } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showFilter = true } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                    }
+        }
+        .navigationTitle("Transactions")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showAddTransaction = true } label: {
+                    Image(systemName: "plus")
                 }
             }
-            .sheet(isPresented: $showAddTransaction) {
-                AddTransactionView()
-            }
-            .sheet(isPresented: $showFilter) {
-                TransactionFilterView(viewModel: viewModel, categories: categories)
-            }
-            .sheet(item: $editingTransaction) { transaction in
-                AddTransactionView(editingTransaction: transaction)
-            }
-            .overlay {
-                if transactions.isEmpty {
-                    ContentUnavailableView("No Transactions", systemImage: "list.bullet", description: Text("Transactions you add will show up here."))
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showFilter = true } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
                 }
+            }
+        }
+        .sheet(isPresented: $showAddTransaction) {
+            AddTransactionView()
+        }
+        .sheet(isPresented: $showFilter) {
+            TransactionFilterView(viewModel: viewModel, categories: categories)
+        }
+        .sheet(item: $editingTransaction) { transaction in
+            AddTransactionView(editingTransaction: transaction)
+        }
+        .overlay {
+            if transactions.isEmpty {
+                ContentUnavailableView("No Transactions", systemImage: "list.bullet", description: Text("Transactions you add will show up here."))
             }
         }
     }

@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var incomes: [Income]
     @Query private var categories: [Category]
+    @Query private var exercises: [Exercise]
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @State private var showOnboarding = false
@@ -14,16 +15,14 @@ struct ContentView: View {
             DashboardView()
                 .tabItem { Label("Dashboard", systemImage: "house") }
 
-            TransactionListView()
-                .tabItem { Label("Transactions", systemImage: "list.bullet") }
-
             TrendsView()
                 .tabItem { Label("Trends", systemImage: "chart.bar.xaxis") }
 
+            WorkoutView()
+                .tabItem { Label("Workouts", systemImage: "figure.strengthtraining.traditional") }
+
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
-
-            // Reserved stub slot for future Workout tab (hidden).
         }
         .sheet(isPresented: $showOnboarding, onDismiss: {
             hasCompletedOnboarding = true
@@ -32,6 +31,7 @@ struct ContentView: View {
         }
         .task {
             seedCategoriesIfNeeded()
+            seedExercisesIfNeeded()
             if !hasCompletedOnboarding {
                 showOnboarding = true
             }
@@ -53,9 +53,20 @@ struct ContentView: View {
         }
         try? modelContext.save()
     }
+
+    private func seedExercisesIfNeeded() {
+        guard exercises.isEmpty else { return }
+        for seed in Exercise.starterExercises {
+            modelContext.insert(Exercise(name: seed.name, muscleGroup: seed.muscleGroup))
+        }
+        try? modelContext.save()
+    }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Income.self, Category.self, Bill.self, Transaction.self], inMemory: true)
+        .modelContainer(for: [
+            Income.self, Category.self, Bill.self, Transaction.self,
+            Exercise.self, WorkoutTemplate.self, TemplateExerciseEntry.self, WorkoutSession.self, LoggedSet.self
+        ], inMemory: true)
 }

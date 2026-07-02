@@ -32,6 +32,13 @@ struct DashboardView: View {
                         Image(systemName: "plus")
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        TransactionListView()
+                    } label: {
+                        Image(systemName: "list.bullet")
+                    }
+                }
             }
             .sheet(isPresented: $showAddTransaction) {
                 AddTransactionView()
