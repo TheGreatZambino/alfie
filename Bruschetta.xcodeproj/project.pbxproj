@@ -37,7 +37,7 @@
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Bruschetta.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bruschetta.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF0000000000000000000001 /* AlfieTrackWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlfieTrackWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		AF0000000000000000000C01 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Bruschetta.xcodeproj/Configuration.storekit"; sourceTree = "<group>"; };
+		AF0000000000000000000C01 /* Bruschetta.xcodeproj/Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Bruschetta.xcodeproj/Configuration.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -48,11 +48,21 @@
 			);
 			target = AF0000000000000000000005 /* AlfieTrackWidgetExtension */;
 		};
+		AD0000000000000000000020 /* Exceptions for "Bruschetta" folder in "Bruschetta" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 000000000000000100000000 /* Bruschetta */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* Bruschetta */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AD0000000000000000000020 /* Exceptions for "Bruschetta" folder in "Bruschetta" target */,
+			);
 			path = Bruschetta;
 			sourceTree = "<group>";
 		};
@@ -93,7 +103,7 @@
 				000000000000000000000010 /* Bruschetta */,
 				AF0000000000000000000002 /* AlfieTrackWidget */,
 				AF0000000000000000000F02 /* Shared */,
-				AF0000000000000000000C01 /* Configuration.storekit */,
+				AF0000000000000000000C01 /* Bruschetta.xcodeproj/Configuration.storekit */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -378,30 +388,8 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Alfie;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Alfie uses your camera to scan food barcodes and quickly log nutrition info.";
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Alfie uses Face ID to keep your budget and health data private.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alfie pulls in your steps and cardio workouts so they can be credited towards your goals.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alfie does not write any data to Health. This permission is required by the HealthKit API but is not used.";
-				INFOPLIST_KEY_GADApplicationIdentifier = "ca-app-pub-4737503996393616~4435441126";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Alfie shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Bruschetta/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 0.1.0;
@@ -431,30 +419,8 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Alfie;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Alfie uses your camera to scan food barcodes and quickly log nutrition info.";
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Alfie uses Face ID to keep your budget and health data private.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alfie pulls in your steps and cardio workouts so they can be credited towards your goals.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alfie does not write any data to Health. This permission is required by the HealthKit API but is not used.";
-				INFOPLIST_KEY_GADApplicationIdentifier = "ca-app-pub-4737503996393616~4435441126";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Alfie shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Bruschetta/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 0.1.0;
