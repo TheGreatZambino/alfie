@@ -386,6 +386,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alfie pulls in your steps and cardio workouts so they can be credited towards your goals.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alfie does not write any data to Health. This permission is required by the HealthKit API but is not used.";
 				INFOPLIST_KEY_GADApplicationIdentifier = "ca-app-pub-4737503996393616~4435441126";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Alfie shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -438,6 +439,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alfie pulls in your steps and cardio workouts so they can be credited towards your goals.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alfie does not write any data to Health. This permission is required by the HealthKit API but is not used.";
 				INFOPLIST_KEY_GADApplicationIdentifier = "ca-app-pub-4737503996393616~4435441126";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Alfie shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;

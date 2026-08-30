@@ -16,7 +16,7 @@ struct FoodEntryRowView: View {
                     .foregroundStyle(Color.inkTertiary)
             }
             Spacer()
-            Text("\(Int(entry.calories))")
+            Text("\(Int(entry.calories).formatted())")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.ink)
             Menu {

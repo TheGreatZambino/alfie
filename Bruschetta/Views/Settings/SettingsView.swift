@@ -296,7 +296,7 @@ struct SettingsView: View {
 
     private var nutritionGoalsSubtitle: String {
         guard let goals = nutritionGoals.first else { return "Not set up" }
-        return "\(Int(goals.calorieGoal)) cal · \(Int(goals.proteinGoalGrams))p / \(Int(goals.carbsGoalGrams))c / \(Int(goals.fatGoalGrams))f"
+        return "\(Int(goals.calorieGoal).formatted()) cal · \(Int(goals.proteinGoalGrams))p / \(Int(goals.carbsGoalGrams))c / \(Int(goals.fatGoalGrams))f"
     }
 
     private var appVersionString: String {

@@ -134,9 +134,9 @@ struct NutritionView: View {
 
     private var headlineText: String {
         if caloriesRemaining < 0 {
-            return "Over by \(Int(-caloriesRemaining))"
+            return "Over by \(Int(-caloriesRemaining).formatted())"
         }
-        return "\(Int(caloriesRemaining)) calories left"
+        return "\(Int(caloriesRemaining).formatted()) calories left"
     }
 
     private func openScanner() {
@@ -175,10 +175,10 @@ private struct TodayCard: View {
         HStack(spacing: 18) {
             RingGauge(progress: calorieGoal > 0 ? min(totalCalories / calorieGoal, 1) : 0, color: .food, lineWidth: 11, size: 118) {
                 VStack(spacing: 0) {
-                    Text("\(Int(totalCalories))")
+                    Text("\(Int(totalCalories).formatted())")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.ink)
-                    Text("of \(Int(calorieGoal))")
+                    Text("of \(Int(calorieGoal).formatted())")
                         .font(.system(size: 11))
                         .foregroundStyle(Color.inkTertiary)
                 }
@@ -276,7 +276,7 @@ private struct MealSection: View {
 
                     Spacer()
 
-                    Text("\(Int(caloriesRemaining)) cal to spend")
+                    Text("\(Int(caloriesRemaining).formatted()) cal to spend")
                         .font(.system(size: 12))
                         .foregroundStyle(Color.inkTertiary)
                 }

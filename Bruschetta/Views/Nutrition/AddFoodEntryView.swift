@@ -154,7 +154,7 @@ struct AddFoodEntryView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("\(Int(calories)) cal")
+            Text("\(Int(calories).formatted()) cal")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -309,7 +309,7 @@ private struct LogFoodDetailView: View {
                     HStack {
                         Text("Calories")
                         Spacer()
-                        Text("\(Int(caloriesPerServing * quantity))")
+                        Text("\(Int(caloriesPerServing * quantity).formatted())")
                             .foregroundStyle(Color.food)
                     }
                 }

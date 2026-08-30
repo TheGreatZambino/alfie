@@ -302,7 +302,7 @@ private struct PillarRowsCard: View {
                 PillarRow(
                     pillar: .food,
                     label: "FOOD",
-                    heroValue: "\(max(Int(viewModel.calorieGoal - caloriesToday), 0))",
+                    heroValue: "\(max(Int(viewModel.calorieGoal - caloriesToday), 0).formatted())",
                     supporting: "left today · \(viewModel.goodCalorieDays) of 7 on target"
                 ) {
                     SegmentedBar(segments: [.init(fraction: foodFraction, color: .food)], trackColor: .foodTint)

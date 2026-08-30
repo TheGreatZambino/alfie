@@ -82,9 +82,9 @@ struct WidgetHomeView: View {
             if let nutrition = snapshot.nutrition {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("\(Int(nutrition.caloriesToday)) cal")
+                        Text("\(Int(nutrition.caloriesToday).formatted()) cal")
                             .font(.subheadline.bold())
-                        Text("of \(Int(nutrition.calorieGoal)) goal")
+                        Text("of \(Int(nutrition.calorieGoal).formatted()) goal")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
