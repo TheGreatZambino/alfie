@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alfie Terms of Use</title>
+<meta name="description" content="The terms for using the Alfie app and its optional Alfie Plus subscription.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@500&display=swap');
+
+  :root {
+    --paper: #F7F4EE;
+    --card: #FFFFFF;
+    --ink: #23211E;
+    --ink-secondary: #57534D;
+    --ink-tertiary: #8A847A;
+    --hairline: rgba(35, 33, 30, 0.10);
+    --hairline-strong: rgba(35, 33, 30, 0.16);
+    --accent: #C05E45;
+    --accent-soft: rgba(192, 94, 69, 0.10);
+    --accent-ink: #9A4A35;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1A1917;
+      --card: #24221F;
+      --ink: #F2EEE7;
+      --ink-secondary: #B8B2A7;
+      --ink-tertiary: #8A847A;
+      --hairline: rgba(255, 255, 255, 0.10);
+      --hairline-strong: rgba(255, 255, 255, 0.16);
+      --accent: #E0785C;
+      --accent-soft: rgba(224, 120, 92, 0.16);
+      --accent-ink: #F0A288;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #1A1917;
+    --card: #24221F;
+    --ink: #F2EEE7;
+    --ink-secondary: #B8B2A7;
+    --ink-tertiary: #8A847A;
+    --hairline: rgba(255, 255, 255, 0.10);
+    --hairline-strong: rgba(255, 255, 255, 0.16);
+    --accent: #E0785C;
+    --accent-soft: rgba(224, 120, 92, 0.16);
+    --accent-ink: #F0A288;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { background: var(--paper); }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.doc-header { margin-bottom: 40px; }
+
+  .wordmark {
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(28px, 5vw, 38px);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+
+  .chip {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-secondary);
+    background: var(--card);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 6px;
+    padding: 4px 9px;
+  }
+
+  .lede { margin-top: 24px; color: var(--ink-secondary); font-size: 16px; max-width: 62ch; }
+
+  nav.toc {
+    margin: 32px 0 44px;
+    padding: 18px 20px;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+  }
+  nav.toc p {
+    margin: 0 0 10px;
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+  }
+  nav.toc ol { margin: 0; padding: 0; list-style: none; columns: 2; column-gap: 24px; }
+  nav.toc li { break-inside: avoid; margin-bottom: 6px; }
+  nav.toc a {
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { border-bottom-color: var(--accent); color: var(--accent-ink); }
+
+  section {
+    padding-top: 34px;
+    margin-top: 34px;
+    border-top: 1px solid var(--hairline);
+    scroll-margin-top: 20px;
+  }
+  section:first-of-type { border-top: none; margin-top: 8px; padding-top: 8px; }
+
+  h2 {
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.005em;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  p { margin: 0 0 14px; max-width: 64ch; }
+  p:last-child { margin-bottom: 0; }
+
+  ul { margin: 0 0 14px; padding-left: 22px; max-width: 62ch; }
+  ul li { margin-bottom: 7px; }
+  ul li:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 600; }
+  a { color: var(--accent-ink); text-decoration-color: var(--hairline-strong); text-underline-offset: 2px; }
+  a:hover, a:focus-visible { text-decoration-color: currentColor; }
+
+  .callout {
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 15px;
+    margin: 0 0 14px;
+  }
+  .callout p { margin: 0; max-width: none; }
+  .callout + .callout { margin-top: -4px; }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--hairline);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--ink-tertiary);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    a { transition: color 120ms ease, border-color 120ms ease; }
+  }
+  @media (max-width: 520px) { nav.toc ol { columns: 1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc-header">
+    <p class="wordmark">Alfie</p>
+    <h1>Terms of Use</h1>
+    <div class="meta-row">
+      <span class="chip">Effective Aug 30, 2026</span>
+      <span class="chip">v1.0</span>
+    </div>
+    <p class="lede">These terms cover using the Alfie app, including the optional Alfie Plus subscription. By using Alfie, you agree to them.</p>
+  </header>
+
+  <nav class="toc" aria-label="Table of contents">
+    <p>On this page</p>
+    <ol>
+      <li><a href="#license">1. License to use Alfie</a></li>
+      <li><a href="#not-advice">2. Not financial or medical advice</a></li>
+      <li><a href="#your-data">3. Your data &amp; account</a></li>
+      <li><a href="#ads">4. Free tier &amp; ads</a></li>
+      <li><a href="#subscription">5. Alfie Plus subscription</a></li>
+      <li><a href="#acceptable-use">6. Acceptable use</a></li>
+      <li><a href="#availability">7. Availability &amp; changes</a></li>
+      <li><a href="#warranty">8. Disclaimer of warranties</a></li>
+      <li><a href="#liability">9. Limitation of liability</a></li>
+      <li><a href="#termination">10. Termination</a></li>
+      <li><a href="#changes">11. Changes to these terms</a></li>
+      <li><a href="#contact">12. Contact</a></li>
+    </ol>
+  </nav>
+
+  <section id="license">
+    <h2><span class="num">01</span>License to use Alfie</h2>
+    <p>Alfie grants you a personal, non-exclusive, non-transferable license to use the app on devices you own or control, for your own personal budgeting, workout, and nutrition tracking. You may not resell, sublicense, reverse-engineer, or redistribute the app.</p>
+  </section>
+
+  <section id="not-advice">
+    <h2><span class="num">02</span>Not financial or medical advice</h2>
+    <div class="callout">
+      <p>Alfie is a personal tracking tool. Nothing it shows you — budgets, spending trends, workout goals, calorie or macro targets — is financial, medical, or nutritional advice. Decisions about your money, exercise, or diet are yours; consult a qualified professional for guidance specific to your situation.</p>
+    </div>
+  </section>
+
+  <section id="your-data">
+    <h2><span class="num">03</span>Your data &amp; account</h2>
+    <p>You're responsible for the accuracy of what you enter into Alfie and for keeping your Apple ID and device secure, since that's what protects access to your data. See the <a href="privacy.html">Privacy Policy</a> for how your data is stored and synced.</p>
+  </section>
+
+  <section id="ads">
+    <h2><span class="num">04</span>Free tier &amp; ads</h2>
+    <p>Without an Alfie Plus subscription, Alfie shows banner ads served by Google AdMob on the Nutrition and Workouts tabs only. Ad content is selected by Google and isn't endorsed by Alfie.</p>
+  </section>
+
+  <section id="subscription">
+    <h2><span class="num">05</span>Alfie Plus subscription</h2>
+    <ul>
+      <li><strong>Price:</strong> $3.99 USD per month (or the local-currency equivalent shown at purchase), billed through your Apple ID.</li>
+      <li><strong>Auto-renewal:</strong> the subscription renews automatically each month unless canceled at least 24 hours before the end of the current period.</li>
+      <li><strong>Managing or canceling:</strong> done entirely through your Apple ID account settings (Settings → [your name] → Subscriptions), not within Alfie.</li>
+      <li><strong>Charging:</strong> your Apple ID account is charged at confirmation of purchase and at each renewal.</li>
+      <li><strong>Refunds:</strong> handled by Apple under its own refund policies — Alfie has no ability to issue refunds directly.</li>
+      <li><strong>Changes:</strong> if the price or terms of Alfie Plus change, you'll be notified in advance as required by App Store policy.</li>
+    </ul>
+  </section>
+
+  <section id="acceptable-use">
+    <h2><span class="num">06</span>Acceptable use</h2>
+    <p>Don't use Alfie to violate any law, attempt to disrupt its normal operation, or attempt to access another user's data. We may suspend access for accounts that do.</p>
+  </section>
+
+  <section id="availability">
+    <h2><span class="num">07</span>Availability &amp; changes</h2>
+    <p>Alfie is provided by an independent developer, not a large team with guaranteed uptime commitments. Features may be added, changed, or removed over time, and the app may occasionally be unavailable for maintenance or due to factors outside our control (including changes to Apple's platforms or third-party services Alfie depends on).</p>
+  </section>
+
+  <section id="warranty">
+    <h2><span class="num">08</span>Disclaimer of warranties</h2>
+    <p>Alfie is provided "as is" and "as available," without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We don't guarantee the app will be error-free or uninterrupted.</p>
+  </section>
+
+  <section id="liability">
+    <h2><span class="num">09</span>Limitation of liability</h2>
+    <p>To the fullest extent permitted by law, Alfie's developer isn't liable for indirect, incidental, or consequential damages arising from your use of the app, including decisions made based on data or trends it shows you. Nothing here limits liability where the law doesn't allow it to be limited.</p>
+  </section>
+
+  <section id="termination">
+    <h2><span class="num">10</span>Termination</h2>
+    <p>You can stop using Alfie at any time by deleting the app. We may suspend or terminate access for use that violates these terms. An active Alfie Plus subscription continues until you cancel it through your Apple ID — deleting the app alone does not cancel a subscription.</p>
+  </section>
+
+  <section id="changes">
+    <h2><span class="num">11</span>Changes to these terms</h2>
+    <p>If these terms change materially, the effective date above will update. Continuing to use Alfie after a change means you accept the revised terms.</p>
+  </section>
+
+  <section id="contact">
+    <h2><span class="num">12</span>Contact</h2>
+    <p>Questions about these terms? Reach the developer directly at <a href="mailto:zkrauch@gmail.com">zkrauch@gmail.com</a>.</p>
+  </section>
+
+  <footer>
+    Alfie Terms of Use · Effective August 30, 2026
+  </footer>
+</div>
+</body>
+</html>

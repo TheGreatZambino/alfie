@@ -1,8 +1,8 @@
 import StoreKit
 import SwiftUI
 
-private let termsOfUseURL = URL(string: "https://claude.ai/code/artifact/e131bf74-ab8c-4157-9b6b-f401074fdc4b")!
-private let privacyPolicyURL = URL(string: "https://claude.ai/code/artifact/aa72f836-125d-49ad-b7d6-f10a510be3f8")!
+private let termsOfUseURL = URL(string: "https://thegreatzambino.github.io/alfie/legal/terms.html")!
+private let privacyPolicyURL = URL(string: "https://thegreatzambino.github.io/alfie/legal/privacy.html")!
 
 struct RemoveAdsPaywallView: View {
     @ObservedObject private var subscriptions = SubscriptionManager.shared
