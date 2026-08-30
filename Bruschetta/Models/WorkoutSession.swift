@@ -6,14 +6,20 @@ final class WorkoutSession {
     var date: Date = Date()
     var name: String = ""
     var templateName: String?
+    var durationSeconds: TimeInterval = 0
 
     @Relationship(deleteRule: .cascade, inverse: \LoggedSet.session)
     var sets: [LoggedSet]? = []
 
-    init(date: Date = Date(), name: String, templateName: String? = nil) {
+    init(date: Date = Date(), name: String, templateName: String? = nil, durationSeconds: TimeInterval = 0) {
         self.date = date
         self.name = name
         self.templateName = templateName
+        self.durationSeconds = durationSeconds
+    }
+
+    var durationMinutes: Int {
+        Int(durationSeconds / 60)
     }
 
     var totalVolume: Double {

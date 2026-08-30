@@ -31,6 +31,14 @@ struct CategoriesSettingsView: View {
                         Text(category.type == .bill ? "Bill" : "Spending")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        Toggle("", isOn: Binding(
+                            get: { category.includeInOverview },
+                            set: { newValue in
+                                category.includeInOverview = newValue
+                                try? modelContext.save()
+                            }
+                        ))
+                        .labelsHidden()
                     }
                 }
             }
@@ -94,18 +102,27 @@ private struct CategoryEditView: View {
     @State private var icon: String = "tag.fill"
     @State private var colorHex: String = "#0D7377"
     @State private var type: CategoryType = .spending
+    @State private var includeInOverview: Bool = true
 
     private let iconOptions = ["tag.fill", "cart.fill", "fork.knife", "fuelpump.fill", "wrench.and.screwdriver.fill", "tv.fill", "bag.fill", "cross.case.fill", "repeat.circle.fill", "house.fill", "car.fill", "airplane", "gift.fill", "pawprint.fill", "book.fill"]
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Details") {
+                Section {
                     TextField("Name", text: $name)
                     Picker("Type", selection: $type) {
                         Text("Spending").tag(CategoryType.spending)
                         Text("Bill").tag(CategoryType.bill)
                     }
+                } header: {
+                    Text("Details")
+                }
+
+                Section {
+                    Toggle("Include in Overview", isOn: $includeInOverview)
+                } footer: {
+                    Text("Transactions in this category are always tracked. Turning this off just excludes them from Dashboard, Overview, and Trends totals.")
                 }
 
                 Section("Icon") {
@@ -114,7 +131,7 @@ private struct CategoryEditView: View {
                             Image(systemName: option)
                                 .font(.title3)
                                 .frame(width: 44, height: 44)
-                                .background(icon == option ? Color.appAccent.opacity(0.2) : Color(.tertiarySystemBackground))
+                                .background(icon == option ? Color.money.opacity(0.2) : Color(.tertiarySystemBackground))
                                 .clipShape(Circle())
                                 .onTapGesture { icon = option }
                         }
@@ -149,6 +166,7 @@ private struct CategoryEditView: View {
         icon = category.icon
         colorHex = category.colorHex
         type = category.type
+        includeInOverview = category.includeInOverview
     }
 
     private func save() {
@@ -157,9 +175,11 @@ private struct CategoryEditView: View {
             category.icon = icon
             category.colorHex = colorHex
             category.type = type
+            category.includeInOverview = includeInOverview
         } else {
             let sortOrder = (existingCategories.map(\.sortOrder).max() ?? -1) + 1
             let newCategory = Category(name: name, icon: icon, colorHex: colorHex, type: type, sortOrder: sortOrder)
+            newCategory.includeInOverview = includeInOverview
             modelContext.insert(newCategory)
         }
         try? modelContext.save()

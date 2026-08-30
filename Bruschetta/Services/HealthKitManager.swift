@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import HealthKit
 
-struct CardioWorkout: Identifiable {
+struct CardioWorkout: Identifiable, Equatable {
     let id: UUID
     let activityType: HKWorkoutActivityType
     let startDate: Date
@@ -81,6 +81,10 @@ final class HealthKitManager: ObservableObject {
 
     private let store = HKHealthStore()
     private let workoutType = HKObjectType.workoutType()
+    private let stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
+    private let distanceWalkingRunningType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!
+    private let distanceCyclingType = HKQuantityType.quantityType(forIdentifier: .distanceCycling)!
+    private let activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
 
     @Published private(set) var isAuthorized = false
     @Published private(set) var recentWorkouts: [CardioWorkout] = []
@@ -97,7 +101,10 @@ final class HealthKitManager: ObservableObject {
             return
         }
         do {
-            try await store.requestAuthorization(toShare: [], read: [workoutType])
+            try await store.requestAuthorization(
+                toShare: [],
+                read: [workoutType, stepCountType, distanceWalkingRunningType, distanceCyclingType, activeEnergyType]
+            )
             isAuthorized = true
             errorMessage = nil
             await fetchRecentWorkouts()
@@ -111,23 +118,46 @@ final class HealthKitManager: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-
         do {
-            let samples: [HKSample] = try await withCheckedThrowingContinuation { continuation in
-                let query = HKSampleQuery(sampleType: workoutType, predicate: nil, limit: limit, sortDescriptors: [sort]) { _, samples, error in
-                    if let error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume(returning: samples ?? [])
-                    }
-                }
-                store.execute(query)
-            }
-            recentWorkouts = samples.compactMap { $0 as? HKWorkout }.map(CardioWorkout.init)
+            recentWorkouts = try await runSampleQuery(predicate: nil, limit: limit)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Fetches every workout within a date range (e.g. a calendar month), with no cap on count.
+    func fetchWorkouts(in interval: DateInterval) async -> [CardioWorkout] {
+        guard isHealthDataAvailable, isAuthorized else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: interval.start, end: interval.end, options: .strictStartDate)
+        return (try? await runSampleQuery(predicate: predicate, limit: HKObjectQueryNoLimit)) ?? []
+    }
+
+    /// Total step count over the given interval (e.g. today, or the current week).
+    func fetchStepCount(in interval: DateInterval) async -> Int {
+        guard isHealthDataAvailable, isAuthorized else { return 0 }
+        let predicate = HKQuery.predicateForSamples(withStart: interval.start, end: interval.end, options: .strictStartDate)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: stepCountType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, statistics, _ in
+                let sum = statistics?.sumQuantity()?.doubleValue(for: .count()) ?? 0
+                continuation.resume(returning: Int(sum))
+            }
+            store.execute(query)
+        }
+    }
+
+    private func runSampleQuery(predicate: NSPredicate?, limit: Int) async throws -> [CardioWorkout] {
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        let samples: [HKSample] = try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(sampleType: workoutType, predicate: predicate, limit: limit, sortDescriptors: [sort]) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: samples ?? [])
+                }
+            }
+            store.execute(query)
+        }
+        return samples.compactMap { $0 as? HKWorkout }.map(CardioWorkout.init)
     }
 }

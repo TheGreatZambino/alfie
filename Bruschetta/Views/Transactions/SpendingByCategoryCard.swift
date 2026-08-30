@@ -32,9 +32,6 @@ struct SpendingByCategoryCard: View {
                 .frame(height: CGFloat(items.count) * 36 + 20)
             }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .cardStyle()
     }
 }

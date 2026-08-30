@@ -14,8 +14,15 @@ struct TransactionRowView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(transaction.category?.name ?? "Uncategorized")
-                    .font(.body)
+                HStack(spacing: 4) {
+                    Text(transaction.category?.name ?? "Uncategorized")
+                        .font(.body)
+                    if transaction.receiptImageData != nil {
+                        Image(systemName: "camera.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 if let note = transaction.note, !note.isEmpty {
                     Text(note)
                         .font(.caption)

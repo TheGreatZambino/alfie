@@ -13,6 +13,7 @@ final class Category {
     var colorHex: String = "#9E9E9E"
     var typeRaw: String = CategoryType.spending.rawValue
     var sortOrder: Int = 0
+    var includeInOverview: Bool = true
 
     @Relationship(deleteRule: .nullify, inverse: \Transaction.category)
     var transactions: [Transaction]? = []
@@ -49,11 +50,12 @@ final class Category {
         ("Housing", "house.fill", "#6D4C41"),
         ("Savings", "banknote.fill", "#2E7D32"),
         ("Investing", "chart.line.uptrend.xyaxis", "#1565C0"),
+        ("Investments", "building.columns.fill", "#00695C"),
         ("Utilities", "bolt.fill", "#F9A825"),
         ("Internet", "wifi", "#5C6BC0")
     ]
 
-    static let savingsCategoryNames: Set<String> = ["Savings", "Investing"]
+    static let savingsCategoryNames: Set<String> = ["Savings", "Investing", "Investments"]
 
     var isSavingsOrInvesting: Bool {
         Category.savingsCategoryNames.contains(name)

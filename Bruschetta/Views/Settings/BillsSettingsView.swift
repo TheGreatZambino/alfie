@@ -67,7 +67,7 @@ struct BillsSettingsView: View {
 private struct BillEditView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(filter: #Predicate<Category> { $0.typeRaw == "bill" || $0.typeRaw == "spending" }, sort: \Category.sortOrder)
+    @Query(sort: \Category.sortOrder)
     private var categories: [Category]
 
     let bill: Bill?
@@ -80,17 +80,33 @@ private struct BillEditView: View {
     @State private var isActive: Bool = true
     @State private var notes: String = ""
 
+    private var availableCategories: [Category] {
+        categories
+            .filter { !$0.isSavingsOrInvesting || $0 === category }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     TextField("Name", text: $name)
-                    CurrencyTextField(placeholder: "Total Bill Amount", text: $amountText)
+                    CurrencyTextField(placeholder: "Total Amount", text: $amountText)
                     CurrencyTextField(placeholder: "Allocate per Paycheck", text: $allocationAmountText)
-                    Stepper("Due day: \(dueDay)", value: $dueDay, in: 1...31)
+                    HStack {
+                        Text("Due day")
+                        Spacer()
+                        TextField("Day", value: $dueDay, format: .number)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 50)
+                            .onChange(of: dueDay) { _, newValue in
+                                dueDay = min(max(newValue, 1), 31)
+                            }
+                    }
                     Picker("Category", selection: $category) {
                         Text("None").tag(Category?.none)
-                        ForEach(categories) { cat in
+                        ForEach(availableCategories) { cat in
                             Text(cat.name).tag(Category?.some(cat))
                         }
                     }
@@ -98,7 +114,7 @@ private struct BillEditView: View {
                 } header: {
                     Text("Details")
                 } footer: {
-                    Text("Total Bill Amount is the actual bill cost. Allocate per Paycheck is what you set aside each pay period — it can be more than the minimum required.")
+                    Text("Total Amount is the actual bill cost. Allocate per Paycheck is what you set aside each pay period — it can be more than the minimum required. For savings or investing contributions, use Settings > Savings & investments instead — those aren't due on a specific day.")
                 }
 
                 Section("Notes") {

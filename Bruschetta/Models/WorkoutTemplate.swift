@@ -22,15 +22,32 @@ final class WorkoutTemplate {
 @Model
 final class TemplateExerciseEntry {
     var exercise: Exercise?
-    var targetSets: Int = 3
-    var targetReps: Int = 10
     var order: Int = 0
     var template: WorkoutTemplate?
 
-    init(exercise: Exercise?, targetSets: Int = 3, targetReps: Int = 10, order: Int = 0) {
+    @Relationship(deleteRule: .cascade, inverse: \TemplateSetEntry.templateExercise)
+    var setEntries: [TemplateSetEntry]? = []
+
+    init(exercise: Exercise?, order: Int = 0) {
         self.exercise = exercise
-        self.targetSets = targetSets
-        self.targetReps = targetReps
         self.order = order
+    }
+
+    var sortedSetEntries: [TemplateSetEntry] {
+        (setEntries ?? []).sorted { $0.setNumber < $1.setNumber }
+    }
+}
+
+@Model
+final class TemplateSetEntry {
+    var setNumber: Int = 1
+    var targetReps: Int = 10
+    var targetWeight: Double = 0
+    var templateExercise: TemplateExerciseEntry?
+
+    init(setNumber: Int = 1, targetReps: Int = 10, targetWeight: Double = 0) {
+        self.setNumber = setNumber
+        self.targetReps = targetReps
+        self.targetWeight = targetWeight
     }
 }

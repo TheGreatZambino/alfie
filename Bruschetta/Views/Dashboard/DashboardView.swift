@@ -5,43 +5,62 @@ struct DashboardView: View {
     @Query private var incomes: [Income]
     @Query private var bills: [Bill]
     @Query private var transactions: [Transaction]
+    @Query private var savingsAccounts: [SavingsAccount]
 
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showAddTransaction = false
+    @State private var showSettings = false
 
     private var income: Income? { incomes.first }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    VStack(spacing: 14) {
+                        header
 
-                    BudgetSummaryCard(viewModel: viewModel)
+                        BalanceCard(viewModel: viewModel)
 
-                    BillsDueCard(bills: viewModel.billsDueThisPeriod, period: viewModel.currentPeriod)
+                        if !savingsAccounts.isEmpty {
+                            HStack(spacing: 12) {
+                                ForEach(savingsAccounts) { account in
+                                    SavingsTile(account: account)
+                                }
+                            }
+                        }
 
-                    BillAllocationCard(totalMonthlyBills: viewModel.totalMonthlyBills, allocationPerPaycheck: viewModel.billAllocationPerPaycheck, payCadenceDisplayName: viewModel.payCadenceDisplayName)
-                }
-                .padding()
-            }
-            .navigationTitle("Finances")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showAddTransaction = true } label: {
-                        Image(systemName: "plus")
+                        BillsThisPeriodCard(bills: viewModel.billsDueThisPeriod, period: viewModel.currentPeriod)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 90)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        TransactionListView()
-                    } label: {
-                        Image(systemName: "list.bullet")
-                    }
+
+                Button {
+                    showAddTransaction = true
+                } label: {
+                    Circle()
+                        .fill(Color.moneyFill)
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            Image(systemName: "plus")
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundStyle(.white)
+                        )
+                        .shadow(color: Color.moneyFill.opacity(0.32), radius: 10, y: 8)
                 }
+                .padding(.trailing, 20)
+                .padding(.bottom, 16)
             }
+            .background(Color.paper)
+            .toolbar(.hidden, for: .navigationBar)
+            .tint(.money)
             .sheet(isPresented: $showAddTransaction) {
-                AddTransactionView()
+                AddTransactionView(remaining: viewModel.remaining)
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .refreshable {
                 refresh()
@@ -50,100 +69,198 @@ struct DashboardView: View {
             .onChange(of: bills) { _, _ in refresh() }
             .onChange(of: transactions) { _, _ in refresh() }
             .onChange(of: incomes) { _, _ in refresh() }
+            .onChange(of: savingsAccounts) { _, _ in refresh() }
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(viewModel.daysUntilNextPay == 1 ? "Payday is tomorrow!" : "Next payday is in \(viewModel.daysUntilNextPay) days")
-                .font(.title2.bold())
-            Text(viewModel.nextPayDate.formatted(date: .long, time: .omitted))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("FINANCES")
+                    .eyebrowStyle(color: .money)
+                Text(viewModel.daysUntilNextPay <= 1 ? "Payday is tomorrow" : "Payday in \(viewModel.daysUntilNextPay) days")
+                    .font(.screenHeadline)
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            HStack(spacing: 10) {
+                NavigationLink {
+                    TransactionListView()
+                } label: {
+                    circleButton(systemName: "list.bullet")
+                }
+                NavigationLink {
+                    TrendsView()
+                } label: {
+                    circleButton(systemName: "chart.bar.xaxis")
+                }
+                Button {
+                    showSettings = true
+                } label: {
+                    circleButton(systemName: "gearshape")
+                }
+            }
         }
+        .frame(minHeight: 84)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    private func circleButton(systemName: String) -> some View {
+        Circle()
+            .fill(Color.card)
+            .overlay(Circle().strokeBorder(Color.cardBorder, lineWidth: 1))
+            .overlay(
+                Image(systemName: systemName)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.inkSecondary)
+            )
+            .frame(width: 36, height: 36)
     }
 
     private func refresh() {
-        viewModel.refresh(income: income, bills: bills, transactions: transactions)
+        viewModel.refresh(income: income, bills: bills, transactions: transactions, savingsAccounts: savingsAccounts)
     }
 }
 
-private struct BudgetSummaryCard: View {
+// MARK: - Card 1: Balance
+
+private struct BalanceCard: View {
     @ObservedObject var viewModel: DashboardViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Budget Summary")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("LEFT THIS PERIOD")
+                .textCase(.uppercase)
+                .font(.system(size: 13, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(.white.opacity(0.72))
 
-            row(label: "Income this period", value: viewModel.incomeForPeriod, color: .primary)
-            row(label: "Bills allocation", value: -viewModel.billAllocationPerPaycheck, color: .red)
-            row(label: "Savings allocation", value: -viewModel.savingsAllocation, color: .appAccent)
-            row(label: "Spending", value: -viewModel.totalSpending, color: .red)
+            Text(viewModel.remaining, format: .currency(code: "USD"))
+                .font(.heroNumeralScreen)
+                .foregroundStyle(.white)
 
-            Divider()
+            SegmentedBar(
+                segments: [
+                    .init(fraction: billsFraction, color: .white.opacity(0.9)),
+                    .init(fraction: savingsFraction, color: .white.opacity(0.6)),
+                    .init(fraction: spentFraction, color: .white.opacity(0.38)),
+                ],
+                trackColor: .white.opacity(0.2)
+            )
 
-            HStack {
-                Text("Remaining")
-                    .font(.headline)
-                Spacer()
-                Text(viewModel.remaining, format: .currency(code: "USD"))
-                    .font(.headline)
-                    .foregroundStyle(viewModel.remaining >= 0 ? Color.appAccent : .red)
-            }
+            Text("\(viewModel.incomeForPeriod, format: .currency(code: "USD").precision(.fractionLength(0))) in · \(viewModel.billAllocationPerPaycheck + viewModel.totalSpending, format: .currency(code: "USD").precision(.fractionLength(0))) committed · \(perDayToPayday, format: .currency(code: "USD").precision(.fractionLength(0)))/day to payday")
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.85))
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .heroCardStyle(pillar: .moneyFill)
     }
 
-    private func row(label: String, value: Double, color: Color) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value, format: .currency(code: "USD"))
-                .foregroundStyle(color)
-        }
-        .font(.subheadline)
+    private var total: Double { max(viewModel.incomeForPeriod, 1) }
+    private var billsFraction: Double { (viewModel.billAllocationPerPaycheck - viewModel.savingsAllocation) / total }
+    private var savingsFraction: Double { viewModel.savingsAllocation / total }
+    private var spentFraction: Double { viewModel.totalSpending / total }
+
+    private var perDayToPayday: Double {
+        viewModel.daysUntilNextPay > 0 ? viewModel.remaining / Double(viewModel.daysUntilNextPay) : viewModel.remaining
     }
 }
 
-private struct BillsDueCard: View {
+// MARK: - Card 2: Savings/Investments tiles
+
+private struct SavingsTile: View {
+    let account: SavingsAccount
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(account.name)
+                .font(.system(size: 12))
+                .foregroundStyle(Color.inkTertiary)
+            Text(account.balance, format: .currency(code: "USD"))
+                .font(.cardNumeral)
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle(radius: 22)
+    }
+}
+
+// MARK: - Card 3: Bills this period
+
+private struct BillsThisPeriodCard: View {
     let bills: [Bill]
     let period: PayPeriod?
 
+    private var unpaidCount: Int { bills.filter { !isPast($0) }.count }
+    private var unpaidTotal: Double { bills.filter { !isPast($0) }.reduce(0) { $0 + $1.amount } }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Bills Due This Period")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("BILLS THIS PERIOD")
+                    .sectionLabelStyle()
+                Spacer()
+                if !bills.isEmpty {
+                    Text("\(unpaidCount) left · \(unpaidTotal, format: .currency(code: "USD").precision(.fractionLength(0)))")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.inkSecondary)
+                }
+            }
+            .padding(.bottom, 8)
 
             if bills.isEmpty {
-                Text("No bills due this period.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    IconBadge(systemName: "checkmark.seal.fill", color: .inkTertiary, size: 32)
+                    Text("No bills due this period.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.inkTertiary)
+                }
+                .padding(.vertical, 4)
             } else {
-                ForEach(bills) { bill in
-                    HStack {
-                        Image(systemName: isPast(bill) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(isPast(bill) ? Color.appAccent : .secondary)
-                        VStack(alignment: .leading) {
-                            Text(bill.name)
-                            Text("Due \(dueDateText(for: bill))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                VStack(spacing: 12) {
+                    ForEach(Array(bills.enumerated()), id: \.element.id) { index, bill in
+                        billRow(bill)
+                        if index < bills.count - 1 {
+                            Divider().overlay(Color.hairline).padding(.leading, 46)
                         }
-                        Spacer()
-                        Text(bill.amount, format: .currency(code: "USD"))
                     }
                 }
             }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .cardStyle()
+    }
+
+    private func billRow(_ bill: Bill) -> some View {
+        let paid = isPast(bill)
+        return HStack(spacing: 12) {
+            IconBadge(
+                systemName: bill.category?.icon ?? "doc.text.fill",
+                color: paid ? .inkTertiary : .money,
+                size: 34,
+                shape: .roundedSquare(radius: 12)
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(bill.name)
+                    .font(.rowTitle)
+                    .foregroundStyle(paid ? Color.inkTertiary : Color.ink)
+                    .strikethrough(paid)
+                Text(paid ? "Paid \(dueDateText(for: bill))" : dueInText(for: bill))
+                    .font(.rowDetail)
+                    .foregroundStyle(Color.inkTertiary)
+            }
+
+            Spacer()
+
+            Text(bill.amount, format: .currency(code: "USD"))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(paid ? Color.inkQuaternary : Color.ink)
+        }
     }
 
     private func dueDate(for bill: Bill) -> Date {
@@ -162,48 +279,17 @@ private struct BillsDueCard: View {
     }
 
     private func dueDateText(for bill: Bill) -> String {
-        dueDate(for: bill).formatted(.dateTime.month(.twoDigits).day(.twoDigits))
+        dueDate(for: bill).formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    private func dueInText(for bill: Bill) -> String {
+        let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: dueDate(for: bill)).day ?? 0
+        if days <= 0 { return "Due today" }
+        if days == 1 { return "Due tomorrow" }
+        return "Due in \(days) days"
     }
 
     private func isPast(_ bill: Bill) -> Bool {
         dueDate(for: bill) < Calendar.current.startOfDay(for: Date())
     }
 }
-
-private struct BillAllocationCard: View {
-    let totalMonthlyBills: Double
-    let allocationPerPaycheck: Double
-    let payCadenceDisplayName: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Total Monthly Bills")
-                .font(.headline)
-
-            HStack {
-                Text("Monthly Total")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(totalMonthlyBills, format: .currency(code: "USD"))
-                    .font(.title3.bold())
-            }
-
-            Divider()
-
-            HStack {
-                Text("\(payCadenceDisplayName) allocation")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(allocationPerPaycheck, format: .currency(code: "USD"))
-                    .font(.title3.bold())
-                    .foregroundStyle(Color.appAccent)
-            }
-        }
-        .font(.subheadline)
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
-    }
-}
-

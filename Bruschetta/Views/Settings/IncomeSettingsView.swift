@@ -31,6 +31,7 @@ struct IncomeSettingsView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save() }
+                    .disabled(parsedAmount(amountText) == nil)
             }
         }
         .onAppear { load() }
@@ -43,8 +44,12 @@ struct IncomeSettingsView: View {
         nextPayDate = income.nextPayDate
     }
 
+    private func parsedAmount(_ text: String) -> Double? {
+        Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
     private func save() {
-        guard let amount = Double(amountText) else { return }
+        guard let amount = parsedAmount(amountText) else { return }
         if let income = incomes.first {
             income.amount = amount
             income.cadence = cadence

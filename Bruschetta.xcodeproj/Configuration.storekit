@@ -1,0 +1,48 @@
+{
+  "identifier" : "9A1B2C3D-0001-4A2B-8C3D-000000000001",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "9A1B2C3D-0002-4A2B-8C3D-000000000002",
+      "localizations" : [],
+      "name" : "Alfie Plus",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "3.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "9A1B2C3D-0003-4A2B-8C3D-000000000003",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Remove ads from Nutrition and Workouts.",
+              "displayName" : "Alfie Plus",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "alfie.removeads.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Remove Ads Monthly",
+          "subscriptionGroupID" : "9A1B2C3D-0002-4A2B-8C3D-000000000002",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

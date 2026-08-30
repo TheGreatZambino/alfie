@@ -12,51 +12,55 @@ struct TrendsView: View {
     private var income: Income? { incomes.first }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    Picker("View", selection: $mode) {
-                        ForEach(TrendsMode.allCases) { m in
-                            Text(m.label).tag(m)
-                        }
+        ScrollView {
+            VStack(spacing: 20) {
+                Picker("View", selection: $mode) {
+                    ForEach(TrendsMode.allCases) { m in
+                        Text(m.label).tag(m)
                     }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
 
-                    if let income {
-                        let periods = buildPeriods(income: income)
-                        let data = buildData(periods: periods)
+                if let income {
+                    let periods = buildPeriods(income: income)
+                    let data = buildData(periods: periods)
 
-                        SpendingTrendChart(data: data, mode: mode)
-                            .padding(.horizontal)
-
-                        Divider()
-
-                        ForEach(data.reversed()) { bucket in
-                            PeriodBucketRow(bucket: bucket, mode: mode)
-                        }
+                    SpendingTrendChart(data: data, mode: mode)
                         .padding(.horizontal)
-                    } else {
-                        ContentUnavailableView(
-                            "No Income Set",
-                            systemImage: "chart.bar",
-                            description: Text("Set up your income in Settings to see spending trends.")
-                        )
+
+                    if !categoryTotals.isEmpty {
+                        SpendingByCategoryCard(items: categoryTotals)
+                            .padding(.horizontal)
                     }
-                }
-                .padding(.vertical)
-            }
-            .navigationTitle("Trends")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showAddTransaction = true } label: {
-                        Image(systemName: "plus")
+
+                    Divider()
+
+                    ForEach(data.reversed()) { bucket in
+                        PeriodBucketRow(bucket: bucket, mode: mode)
                     }
+                    .padding(.horizontal)
+                } else {
+                    ContentUnavailableView(
+                        "No Income Set",
+                        systemImage: "chart.bar",
+                        description: Text("Set up your income in Settings to see spending trends.")
+                    )
                 }
             }
-            .sheet(isPresented: $showAddTransaction) {
-                AddTransactionView()
+            .padding(.vertical)
+        }
+        .navigationTitle("Trends")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showAddTransaction = true } label: {
+                    Image(systemName: "plus")
+                }
             }
+        }
+        .sheet(isPresented: $showAddTransaction) {
+            AddTransactionView()
         }
     }
 
@@ -93,6 +97,19 @@ struct TrendsView: View {
         // Include one period before that for context, if available
         let startIndex = max(0, firstRelevantIndex - 1)
         return Array(periods[startIndex...])
+    }
+
+    /// Aggregate spending by category across all currently-displayed transactions, keyed by
+    /// the real `Category` object (matching `DashboardViewModel.spendingByCategory`'s pattern)
+    /// so it can feed `SpendingByCategoryCard` directly.
+    private var categoryTotals: [(category: Category, amount: Double)] {
+        var grouped: [ObjectIdentifier: (category: Category, amount: Double)] = [:]
+        for t in transactions {
+            guard let category = t.category else { continue }
+            let key = ObjectIdentifier(category)
+            grouped[key, default: (category, 0)].amount += t.amount
+        }
+        return grouped.values.sorted { $0.amount > $1.amount }
     }
 
     private func buildData(periods: [PayPeriod]) -> [SpendingBucket] {
@@ -147,8 +164,8 @@ private struct SpendingTrendChart: View {
     let mode: TrendsMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Spending Over Time")
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Spending Over Time", systemImage: "chart.bar.fill")
                 .font(.headline)
 
             Chart(data) { bucket in
@@ -156,7 +173,7 @@ private struct SpendingTrendChart: View {
                     x: .value("Period", shortLabel(for: bucket.period, mode: mode)),
                     y: .value("Spent", bucket.total)
                 )
-                .foregroundStyle(Color.appAccent)
+                .foregroundStyle(Color.money)
                 .cornerRadius(4)
             }
             .chartYAxis {
@@ -164,10 +181,7 @@ private struct SpendingTrendChart: View {
             }
             .frame(height: 180)
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .cardStyle()
     }
 
     private func shortLabel(for period: PayPeriod, mode: TrendsMode) -> String {
@@ -206,12 +220,12 @@ private struct PeriodBucketRow: View {
                     Spacer()
                     Text(bucket.total, format: .currency(code: "USD"))
                         .font(.subheadline.bold())
-                        .foregroundStyle(Color.appAccent)
+                        .foregroundStyle(Color.money)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .padding()
+                .padding(18)
             }
             .buttonStyle(.plain)
 
@@ -248,9 +262,10 @@ private struct PeriodBucketRow: View {
                     .transition(.opacity)
             }
         }
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
 
     private var rangeLabel: String {

@@ -18,7 +18,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var remaining: Double = 0
     @Published var spendingByCategory: [(category: Category, amount: Double)] = []
 
-    func refresh(income: Income?, bills: [Bill], transactions: [Transaction]) {
+    func refresh(income: Income?, bills: [Bill], transactions: [Transaction], savingsAccounts: [SavingsAccount] = []) {
         guard let income else {
             daysUntilNextPay = 0
             incomeForPeriod = 0
@@ -47,14 +47,17 @@ final class DashboardViewModel: ObservableObject {
         billsDueThisPeriod = bills.filter { $0.isActive && period.contains(day: $0.dueDay) }
         totalBillsDue = billsDueThisPeriod.reduce(0) { $0 + $1.amount }
 
-        let activeBills = bills.filter { $0.isActive }
+        let activeBills = bills.filter { $0.isActive && $0.category?.includeInOverview != false }
         totalMonthlyBills = activeBills.reduce(0) { $0 + $1.amount }
-        billAllocationPerPaycheck = activeBills.reduce(0) { $0 + $1.allocationAmount }
+        let savingsAccountAllocation = savingsAccounts.reduce(0) { $0 + $1.allocationPerPaycheck }
+        billAllocationPerPaycheck = activeBills.reduce(0) { $0 + $1.allocationAmount } + savingsAccountAllocation
         savingsAllocation = activeBills
             .filter { $0.category?.isSavingsOrInvesting == true }
-            .reduce(0) { $0 + $1.allocationAmount }
+            .reduce(0) { $0 + $1.allocationAmount } + savingsAccountAllocation
 
-        let periodTransactions = transactions.filter { $0.date >= period.start && $0.date <= period.end }
+        let periodTransactions = transactions.filter {
+            $0.date >= period.start && $0.date <= period.end && $0.category?.includeInOverview != false
+        }
         totalSpending = periodTransactions.reduce(0) { $0 + $1.amount }
 
         remaining = incomeForPeriod - billAllocationPerPaycheck - totalSpending

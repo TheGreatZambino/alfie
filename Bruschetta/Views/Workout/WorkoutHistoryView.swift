@@ -20,7 +20,7 @@ struct WorkoutHistoryView: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(Int(session.totalVolume)) lb")
                             .font(.subheadline)
-                            .foregroundStyle(Color.appAccent)
+                            .foregroundStyle(Color.training)
                         Text("\(session.exerciseCount) exercise\(session.exerciseCount == 1 ? "" : "s")")
                             .font(.caption)
                             .foregroundStyle(.secondary)
