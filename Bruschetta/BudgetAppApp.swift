@@ -32,6 +32,7 @@ struct BudgetAppApp: App {
         AnalyticsService.configure()
         _ = SubscriptionManager.shared
         GoogleMobileAdsInitializer.start()
+        CrashDiagnosticsReporter.shared.start()
     }
 
     var sharedModelContainer: ModelContainer = {

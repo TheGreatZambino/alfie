@@ -50,6 +50,16 @@ enum AnalyticsService {
         workoutLogged(.cardio)
     }
 
+    /// Reports a MetricKit crash or hang diagnostic. `detail` is a termination reason or
+    /// hang duration only — never a stack trace or anything that could identify the user.
+    static func diagnosticDetected(type: String, detail: String?) {
+        var parameters = ["type": type]
+        if let detail {
+            parameters["detail"] = detail
+        }
+        TelemetryDeck.signal("diagnosticDetected", parameters: parameters)
+    }
+
     static func bracketLabel(for score: Double) -> String {
         switch score {
         case ..<25: return "0-25"
