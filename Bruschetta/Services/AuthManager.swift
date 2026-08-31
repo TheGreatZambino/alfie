@@ -73,7 +73,7 @@ final class AuthManager: ObservableObject {
         do {
             let success = try await context.evaluatePolicy(
                 .deviceOwnerAuthentication,
-                localizedReason: "Unlock Alfie"
+                localizedReason: "Unlock Alfie Track"
             )
             isUnlocked = success
             return success

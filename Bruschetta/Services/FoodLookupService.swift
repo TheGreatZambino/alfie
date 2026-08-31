@@ -122,7 +122,7 @@ final class FoodLookupService: ObservableObject {
     }
 
     /// Strips leading zeros so a 12-digit UPC-A and its zero-padded 13-digit EAN form compare equal.
-    private func normalizeUPC(_ code: String) -> String {
+    func normalizeUPC(_ code: String) -> String {
         let trimmed = code.drop { $0 == "0" }
         return trimmed.isEmpty ? "0" : String(trimmed)
     }
@@ -153,7 +153,7 @@ private struct OFFSearchResponse: Decodable {
     let products: [OFFProduct]
 }
 
-private struct OFFProduct: Decodable {
+struct OFFProduct: Decodable {
     let code: String?
     let product_name: String?
     let brands: String?
@@ -186,18 +186,18 @@ private struct OFFProduct: Decodable {
         )
     }
 
-    private static func parseGrams(from text: String?) -> Double? {
+    static func parseGrams(from text: String?) -> Double? {
         guard let text, let match = text.range(of: #"[\d.]+\s*g\b"#, options: .regularExpression) else { return nil }
         return Double(text[match].filter { $0.isNumber || $0 == "." })
     }
 
-    private static func formatGrams(_ value: Double) -> String {
+    static func formatGrams(_ value: Double) -> String {
         let grams = value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
         return "\(grams) g"
     }
 }
 
-private struct OFFNutriments: Decodable {
+struct OFFNutriments: Decodable {
     let energy_kcal_100g: Double?
     let proteins_100g: Double?
     let carbohydrates_100g: Double?
@@ -227,7 +227,7 @@ private struct USDASearchResponse: Decodable {
     let foods: [USDAFood]
 }
 
-private struct USDAFood: Decodable {
+struct USDAFood: Decodable {
     let fdcId: Int
     let description: String
     let brandName: String?
@@ -275,7 +275,7 @@ private struct USDAFood: Decodable {
     }
 }
 
-private struct USDANutrient: Decodable {
+struct USDANutrient: Decodable {
     let nutrientName: String?
     let unitName: String?
     let value: Double?
