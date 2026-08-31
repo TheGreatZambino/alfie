@@ -117,7 +117,7 @@ struct SettingsView: View {
 
                         Button { showTour = true } label: {
                             HStack {
-                                settingsRow(icon: "questionmark.circle.fill", tint: .ink, title: "How to use Alfie", subtitle: nil, showChevron: false)
+                                settingsRow(icon: "questionmark.circle.fill", tint: .ink, title: "How to use Alfie Track", subtitle: nil, showChevron: false)
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 12, weight: .semibold))

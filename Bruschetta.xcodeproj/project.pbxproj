@@ -20,6 +20,13 @@
 			remoteGlobalIDString = AF0000000000000000000005;
 			remoteInfo = AlfieTrackWidgetExtension;
 		};
+		BD0000000000000000000008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = Bruschetta;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -38,22 +45,23 @@
 		000000000000000000000120 /* Bruschetta.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bruschetta.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF0000000000000000000001 /* AlfieTrackWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlfieTrackWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF0000000000000000000C01 /* Bruschetta.xcodeproj/Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Bruschetta.xcodeproj/Configuration.storekit; sourceTree = "<group>"; };
+		BD0000000000000000000003 /* BruschettaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BruschettaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AF000000000000000000000F /* Exceptions for "AlfieTrackWidget" folder in "AlfieTrackWidgetExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = AF0000000000000000000005 /* AlfieTrackWidgetExtension */;
-		};
 		AD0000000000000000000020 /* Exceptions for "Bruschetta" folder in "Bruschetta" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 000000000000000100000000 /* Bruschetta */;
+		};
+		AF000000000000000000000F /* Exceptions for "AlfieTrackWidget" folder in "AlfieTrackWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AF0000000000000000000005 /* AlfieTrackWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -79,6 +87,11 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		BD0000000000000000000001 /* BruschettaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BruschettaTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +107,11 @@
 			files = (
 			);
 		};
+		BD0000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -103,6 +121,7 @@
 				000000000000000000000010 /* Bruschetta */,
 				AF0000000000000000000002 /* AlfieTrackWidget */,
 				AF0000000000000000000F02 /* Shared */,
+				BD0000000000000000000001 /* BruschettaTests */,
 				AF0000000000000000000C01 /* Bruschetta.xcodeproj/Configuration.storekit */,
 				000000000000000000000020 /* Products */,
 			);
@@ -113,6 +132,7 @@
 			children = (
 				000000000000000000000120 /* Bruschetta.app */,
 				AF0000000000000000000001 /* AlfieTrackWidgetExtension.appex */,
+				BD0000000000000000000003 /* BruschettaTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -166,6 +186,27 @@
 			productReference = AF0000000000000000000001 /* AlfieTrackWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		BD0000000000000000000002 /* BruschettaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BD000000000000000000000B /* Build configuration list for PBXNativeTarget "BruschettaTests" */;
+			buildPhases = (
+				BD0000000000000000000004 /* Sources */,
+				BD0000000000000000000005 /* Frameworks */,
+				BD0000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BD0000000000000000000007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BD0000000000000000000001 /* BruschettaTests */,
+			);
+			name = BruschettaTests;
+			productName = BruschettaTests;
+			productReference = BD0000000000000000000003 /* BruschettaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -181,6 +222,10 @@
 					};
 					AF0000000000000000000005 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					BD0000000000000000000002 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 000000000000000100000000;
 					};
 				};
 			};
@@ -204,6 +249,7 @@
 			targets = (
 				000000000000000100000000 /* Bruschetta */,
 				AF0000000000000000000005 /* AlfieTrackWidgetExtension */,
+				BD0000000000000000000002 /* BruschettaTests */,
 			);
 		};
 /* End PBXProject section */
@@ -215,6 +261,11 @@
 			);
 		};
 		AF0000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		BD0000000000000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -232,6 +283,11 @@
 			files = (
 			);
 		};
+		BD0000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -239,6 +295,11 @@
 			isa = PBXTargetDependency;
 			target = AF0000000000000000000005 /* AlfieTrackWidgetExtension */;
 			targetProxy = AF000000000000000000000B /* PBXContainerItemProxy */;
+		};
+		BD0000000000000000000007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* Bruschetta */;
+			targetProxy = BD0000000000000000000008 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -387,6 +448,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Bruschetta/Info.plist;
@@ -498,6 +560,56 @@
 			};
 			name = Release;
 		};
+		BD0000000000000000000009 /* Debug configuration for PBXNativeTarget "BruschettaTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = alfie.bruschetta.BruschettaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Bruschetta.app/Bruschetta";
+			};
+			name = Debug;
+		};
+		BD000000000000000000000A /* Release configuration for PBXNativeTarget "BruschettaTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = alfie.bruschetta.BruschettaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Bruschetta.app/Bruschetta";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -522,6 +634,14 @@
 			buildConfigurations = (
 				AF0000000000000000000008 /* Debug configuration for PBXNativeTarget "AlfieTrackWidgetExtension" */,
 				AF0000000000000000000009 /* Release configuration for PBXNativeTarget "AlfieTrackWidgetExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		BD000000000000000000000B /* Build configuration list for PBXNativeTarget "BruschettaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD0000000000000000000009 /* Debug configuration for PBXNativeTarget "BruschettaTests" */,
+				BD000000000000000000000A /* Release configuration for PBXNativeTarget "BruschettaTests" */,
 			);
 			defaultConfigurationName = Release;
 		};

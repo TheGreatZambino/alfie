@@ -50,7 +50,7 @@ enum AnalyticsService {
         workoutLogged(.cardio)
     }
 
-    private static func bracketLabel(for score: Double) -> String {
+    static func bracketLabel(for score: Double) -> String {
         switch score {
         case ..<25: return "0-25"
         case 25..<50: return "25-50"
