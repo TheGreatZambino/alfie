@@ -93,6 +93,9 @@ struct OnboardingView: View {
                         }
                     case .tour(let page):
                         TourPageView(page: page)
+                        if isLastStep {
+                            SupportAlfieSection()
+                        }
                     }
                 }
                 .padding(.horizontal, 24)
@@ -185,28 +188,26 @@ struct OnboardingView: View {
     }
 
     private var amountInputCard: some View {
-        HStack(spacing: 2) {
-            Text("$")
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.inkQuaternary)
-            CurrencyTextField(placeholder: "0", text: $amountText)
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.ink)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(24)
-        .cardStyle()
+        CurrencyTextField(placeholder: "0", text: $amountText)
+            .font(.system(size: 44, weight: .bold, design: .rounded))
+            .foregroundStyle(Color.ink)
+            .frame(maxWidth: .infinity)
+            .padding(24)
+            .cardStyle()
     }
 
     private var cadenceChips: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
             ForEach(PayCadence.allCases, id: \.self) { option in
                 Button {
                     cadence = option
                 } label: {
                     Text(option.displayName)
                         .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                         .foregroundStyle(cadence == option ? .white : Color.inkSecondary)
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .padding(.horizontal, 16)
                         .background(Capsule().fill(cadence == option ? Color.money : Color.card))

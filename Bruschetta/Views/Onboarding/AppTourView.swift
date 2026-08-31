@@ -17,9 +17,14 @@ struct AppTourView: View {
                 progressBar
 
                 ScrollView {
-                    TourPageView(page: pages[pageIndex])
-                        .padding(.horizontal, 24)
-                        .padding(.top, 36)
+                    VStack(spacing: 0) {
+                        TourPageView(page: pages[pageIndex])
+                        if isLastPage {
+                            SupportAlfieSection()
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 36)
                 }
 
                 footer

@@ -14,10 +14,10 @@ struct RemoveAdsPaywallView: View {
                 VStack(spacing: 20) {
                     VStack(spacing: 8) {
                         IconBadge(systemName: "sparkles", color: .training, size: 56, shape: .roundedSquare(radius: 16))
-                        Text("Alfie Plus")
+                        Text("Alfie Track Plus")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Color.ink)
-                        Text("Remove ads from Nutrition and Workouts, everywhere in Alfie.")
+                        Text("Remove ads from Nutrition and Workouts, everywhere in Alfie Track.")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(Color.inkTertiary)
                             .multilineTextAlignment(.center)
@@ -26,7 +26,7 @@ struct RemoveAdsPaywallView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         featureRow(icon: "nosign", text: "No banner ads on Nutrition or Workouts")
-                        featureRow(icon: "heart.fill", text: "Supports ongoing development of Alfie")
+                        featureRow(icon: "heart.fill", text: "Supports ongoing development of Alfie Track")
                     }
                     .padding(16)
                     .background(Color.card)
@@ -51,7 +51,7 @@ struct RemoveAdsPaywallView: View {
                 .padding(.bottom, 24)
             }
             .background(Color.paper)
-            .navigationTitle("Alfie Plus")
+            .navigationTitle("Alfie Track Plus")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

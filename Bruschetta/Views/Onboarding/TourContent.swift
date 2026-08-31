@@ -83,6 +83,50 @@ enum TourPage: Hashable {
     }
 }
 
+/// Small call-to-action shown at the end of the tour — in first-run onboarding and the
+/// standalone replay from Settings — pointing new users toward Alfie Plus.
+struct SupportAlfieSection: View {
+    @State private var showPaywall = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.training)
+                Text("Enjoying Alfie Track?")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+            }
+
+            Text("Subscribe to Alfie Track Plus to remove ads and support ongoing development.")
+                .font(.system(size: 13))
+                .lineSpacing(2)
+                .foregroundStyle(Color.inkSecondary)
+
+            Button {
+                showPaywall = true
+            } label: {
+                Text("See Alfie Track Plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.training)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.cardBorder, lineWidth: 1)
+        )
+        .padding(.top, 20)
+        .sheet(isPresented: $showPaywall) {
+            RemoveAdsPaywallView()
+        }
+    }
+}
+
 /// Icon badge + headline + bullet list for one tour page. Used inline by both the
 /// onboarding flow and the standalone tour replay.
 struct TourPageView: View {

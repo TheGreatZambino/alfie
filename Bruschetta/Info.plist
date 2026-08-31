@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Alfie</string>
+	<string>Alfie Track</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,15 +27,15 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.healthcare-fitness</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Alfie uses your camera to scan food barcodes and quickly log nutrition info.</string>
+	<string>Alfie Track uses your camera to scan food barcodes and quickly log nutrition info.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Alfie uses Face ID to keep your budget and health data private.</string>
+	<string>Alfie Track uses Face ID to keep your budget and health data private.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Alfie pulls in your steps and cardio workouts so they can be credited towards your goals.</string>
+	<string>Alfie Track pulls in your steps and cardio workouts so they can be credited towards your goals.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Alfie does not write any data to Health. This permission is required by the HealthKit API but is not used.</string>
+	<string>Alfie Track does not write any data to Health. This permission is required by the HealthKit API but is not used.</string>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Alfie shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.</string>
+	<string>Alfie Track shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

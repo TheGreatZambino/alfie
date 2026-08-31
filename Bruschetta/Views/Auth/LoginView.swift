@@ -13,7 +13,7 @@ struct LoginView: View {
                 Image(systemName: "fork.knife.circle.fill")
                     .font(.system(size: 64))
                     .foregroundStyle(Color.money)
-                Text("Alfie")
+                Text("Alfie Track")
                     .font(.largeTitle.bold())
                 Text("Track your budget and workouts in one place.")
                     .font(.subheadline)

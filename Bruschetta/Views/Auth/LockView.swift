@@ -12,7 +12,7 @@ struct LockView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(Color.money)
 
-            Text("Alfie is Locked")
+            Text("Alfie Track is Locked")
                 .font(.title2.bold())
 
             if didFail {
