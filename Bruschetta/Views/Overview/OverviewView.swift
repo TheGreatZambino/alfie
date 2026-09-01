@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import WidgetKit
+import MessageUI
 
 struct OverviewView: View {
     @Binding var selectedTab: AppTab
@@ -18,6 +19,11 @@ struct OverviewView: View {
     @ObservedObject private var health = HealthKitManager.shared
     @StateObject private var viewModel = OverviewViewModel()
     @State private var showSettings = false
+    @State private var showFeedback = false
+    @State private var showMailUnavailableAlert = false
+    @State private var feedbackResult: Result<MFMailComposeResult, Error>?
+
+    private let feedbackRecipient = "zkrauch@gmail.com"
 
     private var income: Income? { incomes.first }
 
@@ -55,6 +61,14 @@ struct OverviewView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .sheet(isPresented: $showFeedback) {
+            FeedbackMailView(recipient: feedbackRecipient, result: $feedbackResult)
+        }
+        .alert("Mail Not Set Up", isPresented: $showMailUnavailableAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please set up the Mail app on your device, or email us directly at \(feedbackRecipient).")
+        }
         .refreshable { refresh() }
         .onAppear { refresh() }
     }
@@ -78,6 +92,19 @@ struct OverviewView: View {
             }
 
             Spacer()
+
+            Button { presentFeedback() } label: {
+                Circle()
+                    .fill(Color.card)
+                    .overlay(Circle().strokeBorder(Color.cardBorder, lineWidth: 1))
+                    .overlay(
+                        Image(systemName: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color.inkSecondary)
+                    )
+                    .frame(width: 36, height: 36)
+            }
+            .padding(.trailing, 8)
 
             Button { showSettings = true } label: {
                 Circle()
@@ -105,6 +132,14 @@ struct OverviewView: View {
         case 80...: return "Strong week"
         case 50..<80: return "Good week so far"
         default: return "Slow week"
+        }
+    }
+
+    private func presentFeedback() {
+        if MFMailComposeViewController.canSendMail() {
+            showFeedback = true
+        } else {
+            showMailUnavailableAlert = true
         }
     }
 

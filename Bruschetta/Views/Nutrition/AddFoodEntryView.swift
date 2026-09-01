@@ -296,13 +296,20 @@ private struct LogFoodDetailView: View {
                     }
                 }
 
-                Section("Meal") {
+                Section {
                     Picker("Meal", selection: $mealType) {
                         ForEach(MealType.allCases) { meal in
                             Text(meal.displayName).tag(MealType?.some(meal))
                         }
                     }
                     .pickerStyle(.segmented)
+                } header: {
+                    Text("Meal")
+                } footer: {
+                    if mealType == nil {
+                        Text("Choose a meal to log this food.")
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 Section {
@@ -423,13 +430,20 @@ private struct CustomFoodFormView: View {
                     numberField("Sodium (mg)", text: $sodiumText)
                 }
 
-                Section("Meal") {
+                Section {
                     Picker("Meal", selection: $mealType) {
                         ForEach(MealType.allCases) { meal in
                             Text(meal.displayName).tag(MealType?.some(meal))
                         }
                     }
                     .pickerStyle(.segmented)
+                } header: {
+                    Text("Meal")
+                } footer: {
+                    if mealType == nil {
+                        Text("Choose a meal to log this food.")
+                            .foregroundStyle(.red)
+                    }
                 }
             }
             .navigationTitle("Custom Food")

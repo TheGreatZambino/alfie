@@ -44,6 +44,14 @@ final class OverviewViewModel: ObservableObject {
     private var cardioTask: Task<Void, Never>?
     private var weekStart: Date = Date()
 
+    /// Waits for any in-flight HealthKit fetch kicked off by `refresh(...)` to finish, so
+    /// callers that need the fully computed scores (e.g. a Siri intent) don't read stale
+    /// workout/step data. The Overview screen itself doesn't need this — it just observes
+    /// `@Published` updates as they land.
+    func waitForPendingRefresh() async {
+        await cardioTask?.value
+    }
+
     func refresh(
         sessions: [WorkoutSession],
         workoutGoals: WorkoutGoals?,
