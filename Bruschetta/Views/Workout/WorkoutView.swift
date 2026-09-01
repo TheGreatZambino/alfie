@@ -7,6 +7,7 @@ struct WorkoutView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @Query private var workoutGoals: [WorkoutGoals]
 
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var health = HealthKitManager.shared
     @State private var showNewTemplate = false
     @State private var editingTemplate: WorkoutTemplate?
@@ -80,6 +81,10 @@ struct WorkoutView: View {
                 }
                 refreshWidgetSnapshot()
             }
+            .onAppear { refreshHealthData() }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active { refreshHealthData() }
+            }
             .onChange(of: sessions) { refreshWidgetSnapshot() }
             .onChange(of: health.recentWorkouts) { refreshWidgetSnapshot() }
             .onChange(of: health.isAuthorized) { _, isAuthorized in
@@ -87,6 +92,14 @@ struct WorkoutView: View {
                     Task { await refreshTodaySteps() }
                 }
             }
+        }
+    }
+
+    private func refreshHealthData() {
+        guard health.isAuthorized else { return }
+        Task {
+            await health.fetchRecentWorkouts()
+            await refreshTodaySteps()
         }
     }
 

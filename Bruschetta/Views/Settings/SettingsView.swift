@@ -75,6 +75,15 @@ struct SettingsView: View {
                         }
                     }
 
+                    settingsGroup(label: "REMINDERS") {
+                        ForEach(Array(orderedTrackedModules.enumerated()), id: \.element) { index, module in
+                            if index > 0 {
+                                Divider().overlay(Color.hairline).padding(.leading, 60)
+                            }
+                            ReminderRow(module: module)
+                        }
+                    }
+
                     settingsGroup(label: "ALFIE PLUS") {
                         Button {
                             if subscriptions.isSubscribed {
@@ -174,6 +183,10 @@ struct SettingsView: View {
         TrackedModule.set(fromRawValue: trackedModulesRaw)
     }
 
+    private var orderedTrackedModules: [TrackedModule] {
+        TrackedModule.allCases.filter(trackedModules.contains)
+    }
+
     private func moduleBinding(for module: TrackedModule) -> Binding<Bool> {
         Binding(
             get: { trackedModules.contains(module) },
@@ -183,6 +196,8 @@ struct SettingsView: View {
                     modules.insert(module)
                 } else if modules.count > 1 {
                     modules.remove(module)
+                    UserDefaults.standard.set(false, forKey: ReminderPreferenceKeys.enabled(for: module))
+                    NotificationManager.shared.cancelReminder(for: module)
                 }
                 trackedModulesRaw = TrackedModule.rawValue(from: modules)
             }
@@ -303,6 +318,103 @@ struct SettingsView: View {
         let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
         return "\(shortVersion) (\(build))"
+    }
+}
+
+/// A single module's daily reminder toggle plus, when enabled, a time picker. Owns its own
+/// `@AppStorage` bindings keyed per-module so a `ForEach` over `TrackedModule` can instantiate
+/// one of these per tracked pillar.
+private struct ReminderRow: View {
+    let module: TrackedModule
+
+    @ObservedObject private var notificationManager = NotificationManager.shared
+    @AppStorage private var isEnabled: Bool
+    @AppStorage private var timeSeconds: Int
+    @State private var showPermissionAlert = false
+
+    init(module: TrackedModule) {
+        self.module = module
+        _isEnabled = AppStorage(wrappedValue: false, ReminderPreferenceKeys.enabled(for: module))
+        _timeSeconds = AppStorage(wrappedValue: module.defaultReminderSeconds, ReminderPreferenceKeys.timeSeconds(for: module))
+    }
+
+    private var timeBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(bySettingHour: timeSeconds / 3600, minute: (timeSeconds % 3600) / 60, second: 0, of: Date()) ?? Date()
+            },
+            set: { newDate in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                timeSeconds = (components.hour ?? 0) * 3600 + (components.minute ?? 0) * 60
+                if isEnabled {
+                    notificationManager.scheduleReminder(for: module, atSecondsFromMidnight: timeSeconds)
+                }
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                IconBadge(systemName: module.icon, color: .ink, size: 32, shape: .roundedSquare(radius: 11))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(module.displayName)
+                        .font(.rowTitle)
+                        .foregroundStyle(Color.ink)
+                    Text(isEnabled ? "Daily at \(timeBinding.wrappedValue.formatted(date: .omitted, time: .shortened))" : "Off")
+                        .font(.rowDetail)
+                        .foregroundStyle(Color.inkTertiary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(get: { isEnabled }, set: handleToggle))
+                    .labelsHidden()
+                    .tint(.money)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+
+            if isEnabled {
+                DatePicker("Reminder time", selection: timeBinding, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            }
+        }
+        .alert("Notifications Disabled", isPresented: $showPermissionAlert) {
+            Button("Open Settings") { openAppSettings() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Enable notifications for Alfie Track in Settings to get reminders.")
+        }
+    }
+
+    private func handleToggle(_ newValue: Bool) {
+        guard newValue else {
+            isEnabled = false
+            notificationManager.cancelReminder(for: module)
+            return
+        }
+
+        Task {
+            let granted = await notificationManager.requestAuthorizationIfNeeded()
+            if granted {
+                isEnabled = true
+                notificationManager.scheduleReminder(for: module, atSecondsFromMidnight: timeSeconds)
+            } else {
+                isEnabled = false
+                showPermissionAlert = true
+            }
+        }
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 

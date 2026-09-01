@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import CoreData
 
 enum AppearanceMode: String, CaseIterable, Identifiable {
     case system
@@ -34,34 +33,7 @@ struct BudgetAppApp: App {
         GoogleMobileAdsInitializer.start()
     }
 
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema(AppSchema.models)
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false,
-            cloudKitDatabase: .automatic
-        )
-
-        do {
-            return try ModelContainer(
-                for: schema,
-                configurations: [modelConfiguration]
-            )
-        } catch {
-            // Incompatible on-disk store from an older schema (failed migration).
-            // Rather than crash on every launch, wipe the local store and start fresh.
-            let storeURL = modelConfiguration.url
-            if FileManager.default.fileExists(atPath: storeURL.path) {
-                let coordinator = NSPersistentStoreCoordinator(managedObjectModel: NSManagedObjectModel())
-                try? coordinator.destroyPersistentStore(at: storeURL, ofType: NSSQLiteStoreType, options: nil)
-            }
-
-            if let retried = try? ModelContainer(for: schema, configurations: [modelConfiguration]) {
-                return retried
-            }
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    var sharedModelContainer: ModelContainer = AppModelContainer.shared
 
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @StateObject private var authManager = AuthManager()

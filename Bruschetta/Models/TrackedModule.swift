@@ -25,6 +25,15 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    /// Default daily reminder time, in seconds from midnight, before the user customizes it.
+    var defaultReminderSeconds: Int {
+        switch self {
+        case .finance: return 9 * 3600
+        case .workouts: return 18 * 3600
+        case .nutrition: return 9 * 3600
+        }
+    }
+
     static let storageKey = "trackedModules"
 
     /// All modules, joined for the default @AppStorage value.

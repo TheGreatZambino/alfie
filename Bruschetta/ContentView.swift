@@ -41,56 +41,64 @@ struct ContentView: View {
         Group {
             if !authManager.isSignedIn {
                 LoginView()
-            } else if !authManager.isUnlocked {
-                LockView()
             } else {
-                TabView(selection: $selectedTab) {
-                    Tab("Overview", systemImage: selectedTab == .overview ? "house.fill" : "house", value: AppTab.overview) {
-                        OverviewView(selectedTab: $selectedTab, trackedModules: trackedModules)
-                    }
+                ZStack {
+                    TabView(selection: $selectedTab) {
+                        Tab("Overview", systemImage: selectedTab == .overview ? "house.fill" : "house", value: AppTab.overview) {
+                            OverviewView(selectedTab: $selectedTab, trackedModules: trackedModules)
+                        }
 
-                    if trackedModules.contains(.finance) {
-                        Tab("Finances", systemImage: selectedTab == .finances ? "wallet.bifold.fill" : "wallet.bifold", value: AppTab.finances) {
-                            DashboardView()
+                        if trackedModules.contains(.finance) {
+                            Tab("Finances", systemImage: selectedTab == .finances ? "wallet.bifold.fill" : "wallet.bifold", value: AppTab.finances) {
+                                DashboardView()
+                            }
+                        }
+
+                        if trackedModules.contains(.workouts) {
+                            Tab("Workouts", systemImage: "figure.strengthtraining.traditional", value: AppTab.workouts) {
+                                WorkoutView()
+                            }
+                        }
+
+                        if trackedModules.contains(.nutrition) {
+                            Tab("Nutrition", systemImage: "fork.knife", value: AppTab.nutrition) {
+                                NutritionView()
+                            }
                         }
                     }
-
-                    if trackedModules.contains(.workouts) {
-                        Tab("Workouts", systemImage: "figure.strengthtraining.traditional", value: AppTab.workouts) {
-                            WorkoutView()
+                    .tint(selectedTab.pillarColor)
+                    .onAppear { applyTabBarAppearance(for: selectedTab) }
+                    .onChange(of: selectedTab) { _, newTab in applyTabBarAppearance(for: newTab) }
+                    .onChange(of: trackedModulesRaw) { _, _ in
+                        if selectedTab != .overview && !isTabVisible(selectedTab) {
+                            selectedTab = .overview
                         }
                     }
-
-                    if trackedModules.contains(.nutrition) {
-                        Tab("Nutrition", systemImage: "fork.knife", value: AppTab.nutrition) {
-                            NutritionView()
+                    .sheet(isPresented: $showOnboarding, onDismiss: {
+                        hasCompletedOnboarding = true
+                    }) {
+                        OnboardingView()
+                    }
+                    .task {
+                        seedCategoriesIfNeeded()
+                        seedExercisesIfNeeded()
+                        seedNutritionGoalsIfNeeded()
+                        seedWorkoutGoalsIfNeeded()
+                        seedSavingsAccountsIfNeeded()
+                        SavingsReconciler.reconcile(income: incomes.first, bills: bills, transactions: transactions, savingsAccounts: savingsAccounts, context: modelContext)
+                        if !hasCompletedOnboarding {
+                            showOnboarding = true
                         }
+                        await HealthKitManager.shared.requestAuthorizationAndFetch()
+                        await NotificationManager.shared.syncEnabledReminders()
                     }
-                }
-                .tint(selectedTab.pillarColor)
-                .onAppear { applyTabBarAppearance(for: selectedTab) }
-                .onChange(of: selectedTab) { _, newTab in applyTabBarAppearance(for: newTab) }
-                .onChange(of: trackedModulesRaw) { _, _ in
-                    if selectedTab != .overview && !isTabVisible(selectedTab) {
-                        selectedTab = .overview
+                    .disabled(!authManager.isUnlocked)
+
+                    if !authManager.isUnlocked {
+                        LockView()
+                            .background(Color(.systemBackground))
+                            .transition(.opacity)
                     }
-                }
-                .sheet(isPresented: $showOnboarding, onDismiss: {
-                    hasCompletedOnboarding = true
-                }) {
-                    OnboardingView()
-                }
-                .task {
-                    seedCategoriesIfNeeded()
-                    seedExercisesIfNeeded()
-                    seedNutritionGoalsIfNeeded()
-                    seedWorkoutGoalsIfNeeded()
-                    seedSavingsAccountsIfNeeded()
-                    SavingsReconciler.reconcile(income: incomes.first, bills: bills, transactions: transactions, savingsAccounts: savingsAccounts, context: modelContext)
-                    if !hasCompletedOnboarding {
-                        showOnboarding = true
-                    }
-                    await HealthKitManager.shared.requestAuthorizationAndFetch()
                 }
             }
         }

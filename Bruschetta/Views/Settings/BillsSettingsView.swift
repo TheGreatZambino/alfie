@@ -76,6 +76,7 @@ private struct BillEditView: View {
     @State private var amountText: String = ""
     @State private var allocationAmountText: String = ""
     @State private var dueDay: Int = 1
+    @State private var dueDayText: String = "1"
     @State private var category: Category?
     @State private var isActive: Bool = true
     @State private var notes: String = ""
@@ -96,12 +97,14 @@ private struct BillEditView: View {
                     HStack {
                         Text("Due day")
                         Spacer()
-                        TextField("Day", value: $dueDay, format: .number)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
+                        SelectAllOnFocusTextField(placeholder: "Day", text: $dueDayText, keyboardType: .numberPad, textAlignment: .right)
                             .frame(width: 50)
-                            .onChange(of: dueDay) { _, newValue in
-                                dueDay = min(max(newValue, 1), 31)
+                            .onChange(of: dueDayText) { _, newValue in
+                                let clamped = min(max(Int(newValue) ?? 1, 1), 31)
+                                dueDay = clamped
+                                if newValue != String(clamped) {
+                                    dueDayText = String(clamped)
+                                }
                             }
                     }
                     Picker("Category", selection: $category) {
@@ -142,6 +145,7 @@ private struct BillEditView: View {
         amountText = String(format: "%.2f", bill.amount)
         allocationAmountText = String(format: "%.2f", bill.allocationAmount)
         dueDay = bill.dueDay
+        dueDayText = String(bill.dueDay)
         category = bill.category
         isActive = bill.isActive
         notes = bill.notes ?? ""
