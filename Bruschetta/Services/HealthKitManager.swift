@@ -24,6 +24,11 @@ struct CardioWorkout: Identifiable, Equatable {
         } else if let cyclingType = HKQuantityType.quantityType(forIdentifier: .distanceCycling),
                   let sum = workout.statistics(for: cyclingType)?.sumQuantity() {
             self.distanceMiles = sum.doubleValue(for: .mile())
+        } else if let totalDistance = workout.totalDistance {
+            // Some sources (e.g. Garmin Connect) save workouts with the legacy
+            // totalDistance/totalEnergyBurned properties instead of associated
+            // quantity samples, so statistics(for:) returns nil for them.
+            self.distanceMiles = totalDistance.doubleValue(for: .mile())
         } else {
             self.distanceMiles = nil
         }
@@ -31,6 +36,8 @@ struct CardioWorkout: Identifiable, Equatable {
         if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
            let sum = workout.statistics(for: energyType)?.sumQuantity() {
             self.activeCalories = sum.doubleValue(for: .kilocalorie())
+        } else if let totalEnergyBurned = workout.totalEnergyBurned {
+            self.activeCalories = totalEnergyBurned.doubleValue(for: .kilocalorie())
         } else {
             self.activeCalories = nil
         }

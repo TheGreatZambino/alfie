@@ -6,7 +6,7 @@ enum AppSchema {
             Income.self, Category.self, Bill.self, Transaction.self, SavingsAccount.self,
             Exercise.self, WorkoutTemplate.self, TemplateExerciseEntry.self, TemplateSetEntry.self,
             WorkoutSession.self, LoggedSet.self, WorkoutGoals.self,
-            FoodItem.self, NutritionEntry.self, NutritionGoals.self
+            FoodItem.self, NutritionEntry.self, NutritionGoals.self, WaterEntry.self
         ]
     }
 }

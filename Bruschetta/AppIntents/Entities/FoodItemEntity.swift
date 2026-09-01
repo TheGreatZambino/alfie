@@ -22,6 +22,7 @@ struct FoodItemEntity: AppEntity {
 }
 
 struct FoodItemEntityQuery: EntityStringQuery {
+    @MainActor
     func entities(for identifiers: [String]) async throws -> [FoodItemEntity] {
         let context = ModelContext(AppModelContainer.shared)
         return identifiers.compactMap { id in
@@ -31,6 +32,7 @@ struct FoodItemEntityQuery: EntityStringQuery {
         }
     }
 
+    @MainActor
     func entities(matching string: String) async throws -> [FoodItemEntity] {
         let context = ModelContext(AppModelContainer.shared)
         let descriptor = FetchDescriptor<FoodItem>(
@@ -41,6 +43,7 @@ struct FoodItemEntityQuery: EntityStringQuery {
         return items.prefix(20).map { FoodItemEntity(id: $0.persistentModelID.appEntityID, name: $0.name, brand: $0.brand) }
     }
 
+    @MainActor
     func suggestedEntities() async throws -> [FoodItemEntity] {
         let context = ModelContext(AppModelContainer.shared)
         var descriptor = FetchDescriptor<FoodItem>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])

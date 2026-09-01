@@ -59,12 +59,27 @@ final class NutritionGoals {
     var proteinGoalGrams: Double = 150
     var carbsGoalGrams: Double = 200
     var fatGoalGrams: Double = 65
+    var waterGoalOunces: Double = 64
+    var isWaterTrackingEnabled: Bool = true
     var updatedAt: Date = Date()
 
-    init(calorieGoal: Double = 2000, proteinGoalGrams: Double = 150, carbsGoalGrams: Double = 200, fatGoalGrams: Double = 65) {
+    init(calorieGoal: Double = 2000, proteinGoalGrams: Double = 150, carbsGoalGrams: Double = 200, fatGoalGrams: Double = 65, waterGoalOunces: Double = 64, isWaterTrackingEnabled: Bool = true) {
         self.calorieGoal = calorieGoal
         self.proteinGoalGrams = proteinGoalGrams
         self.carbsGoalGrams = carbsGoalGrams
         self.fatGoalGrams = fatGoalGrams
+        self.waterGoalOunces = waterGoalOunces
+        self.isWaterTrackingEnabled = isWaterTrackingEnabled
+    }
+}
+
+@Model
+final class WaterEntry {
+    var date: Date = Date()
+    var ounces: Double = 8
+
+    init(date: Date = Date(), ounces: Double = 8) {
+        self.date = date
+        self.ounces = ounces
     }
 }
