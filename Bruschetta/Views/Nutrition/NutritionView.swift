@@ -5,6 +5,7 @@ import VisionKit
 struct NutritionView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \NutritionEntry.date, order: .reverse) private var allEntries: [NutritionEntry]
+    @Query(sort: \WaterEntry.date, order: .reverse) private var allWaterEntries: [WaterEntry]
     @Query private var goals: [NutritionGoals]
 
     @State private var showScanner = false
@@ -21,6 +22,10 @@ struct NutritionView: View {
         allEntries.filter { Calendar.current.isDateInToday($0.date) }
     }
 
+    private var todaysWaterEntries: [WaterEntry] {
+        allWaterEntries.filter { Calendar.current.isDateInToday($0.date) }
+    }
+
     private var goal: NutritionGoals? { goals.first }
 
     private var totalCalories: Double { todaysEntries.reduce(0) { $0 + $1.calories } }
@@ -34,6 +39,15 @@ struct NutritionView: View {
                     header
 
                     TodayCard(entries: todaysEntries, goal: goal)
+
+                    if goal?.isWaterTrackingEnabled ?? true {
+                        WaterCard(entries: todaysWaterEntries, goalOunces: goal?.waterGoalOunces ?? 64) { ounces in
+                            addWater(ounces: ounces)
+                        } onDelete: { entry in
+                            modelContext.delete(entry)
+                            try? modelContext.save()
+                        }
+                    }
 
                     LogActionsRow { openScanner() } onSearch: {
                         addFoodDefaultMeal = nil
@@ -148,6 +162,11 @@ struct NutritionView: View {
         }
     }
 
+    private func addWater(ounces: Double) {
+        modelContext.insert(WaterEntry(ounces: ounces))
+        try? modelContext.save()
+    }
+
     private func handleScannedBarcode(_ barcode: String) async {
         if let result = await lookupService.lookupBarcode(barcode) {
             scannedResult = result
@@ -210,6 +229,107 @@ private struct TodayCard: View {
             }
             SegmentedBar(segments: [.init(fraction: goal > 0 ? min(value / goal, 1) : 0, color: .food)], height: 7)
         }
+    }
+}
+
+// MARK: - Water Card
+
+private struct WaterCard: View {
+    let entries: [WaterEntry]
+    let goalOunces: Double
+    let onAdd: (Double) -> Void
+    let onDelete: (WaterEntry) -> Void
+
+    @State private var showCustomEntry = false
+    @State private var customAmountText = ""
+
+    private var totalOunces: Double { entries.reduce(0) { $0 + $1.ounces } }
+    private var progress: Double { goalOunces > 0 ? min(totalOunces / goalOunces, 1) : 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "drop.fill")
+                        .foregroundStyle(Color.food)
+                    Text("WATER")
+                        .sectionLabelStyle()
+                }
+                Spacer()
+                Text("\(Int(totalOunces)) / \(Int(goalOunces)) oz")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.inkSecondary)
+            }
+
+            SegmentedBar(segments: [.init(fraction: progress, color: .food)], height: 7)
+
+            HStack(spacing: 8) {
+                quickAddButton(ounces: 8)
+                quickAddButton(ounces: 16)
+                quickAddButton(ounces: 24)
+                Button {
+                    customAmountText = ""
+                    showCustomEntry = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.food)
+                        .frame(width: 40, height: 32)
+                        .background(Color.foodTint)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            if !entries.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(entries) { entry in
+                        HStack {
+                            Text("\(Int(entry.ounces)) oz")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.inkSecondary)
+                            Spacer()
+                            Text(entry.date, style: .time)
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.inkTertiary)
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                onDelete(entry)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .cardStyle()
+        .alert("Add Water", isPresented: $showCustomEntry) {
+            TextField("Ounces", text: $customAmountText)
+                .keyboardType(.decimalPad)
+            Button("Add") {
+                if let amount = Double(customAmountText), amount > 0 {
+                    onAdd(amount)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func quickAddButton(ounces: Double) -> some View {
+        Button {
+            onAdd(ounces)
+        } label: {
+            Text("+\(Int(ounces)) oz")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.food)
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .background(Color.foodTint)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 

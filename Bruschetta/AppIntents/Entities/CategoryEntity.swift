@@ -18,6 +18,7 @@ struct CategoryEntity: AppEntity {
 }
 
 struct CategoryEntityQuery: EntityStringQuery {
+    @MainActor
     func entities(for identifiers: [String]) async throws -> [CategoryEntity] {
         let context = ModelContext(AppModelContainer.shared)
         return identifiers.compactMap { id in
@@ -27,14 +28,17 @@ struct CategoryEntityQuery: EntityStringQuery {
         }
     }
 
+    @MainActor
     func entities(matching string: String) async throws -> [CategoryEntity] {
         try await spendingCategories().filter { $0.name.localizedCaseInsensitiveContains(string) }
     }
 
+    @MainActor
     func suggestedEntities() async throws -> [CategoryEntity] {
         try await spendingCategories()
     }
 
+    @MainActor
     private func spendingCategories() async throws -> [CategoryEntity] {
         let context = ModelContext(AppModelContainer.shared)
         let spending = CategoryType.spending.rawValue
