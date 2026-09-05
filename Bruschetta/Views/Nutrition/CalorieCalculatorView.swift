@@ -65,13 +65,13 @@ struct CalorieCalculatorView: View {
 
     let onApply: (Int) -> Void
 
-    @State private var sex: CalorieCalcSex = .male
-    @State private var age = 30
-    @State private var heightFeet = 5
-    @State private var heightInches = 8
-    @State private var weightPounds = 160
-    @State private var activityLevel: CalorieCalcActivityLevel = .low
-    @State private var goal: CalorieCalcGoal = .maintain
+    @AppStorage("calorieCalc.sex") private var sex: CalorieCalcSex = .male
+    @AppStorage("calorieCalc.age") private var age = 30
+    @AppStorage("calorieCalc.heightFeet") private var heightFeet = 5
+    @AppStorage("calorieCalc.heightInches") private var heightInches = 8
+    @AppStorage("calorieCalc.weightPounds") private var weightPounds = 160
+    @AppStorage("calorieCalc.activityLevel") private var activityLevel: CalorieCalcActivityLevel = .low
+    @AppStorage("calorieCalc.goal") private var goal: CalorieCalcGoal = .maintain
 
     /// Mifflin-St Jeor basal metabolic rate.
     private var bmr: Double {
@@ -99,13 +99,15 @@ struct CalorieCalculatorView: View {
                             ForEach(3...7, id: \.self) { Text("\($0) ft").tag($0) }
                         }
                         .pickerStyle(.menu)
+                        .labelsHidden()
                         Picker("Inches", selection: $heightInches) {
                             ForEach(0...11, id: \.self) { Text("\($0) in").tag($0) }
                         }
                         .pickerStyle(.menu)
+                        .labelsHidden()
                     }
                     HStack {
-                        Text("Weight")
+                        Text("Current Weight")
                         Spacer()
                         TextField("lb", value: $weightPounds, format: .number)
                             .keyboardType(.numberPad)
@@ -117,30 +119,16 @@ struct CalorieCalculatorView: View {
                 }
 
                 Section {
-                    ForEach(CalorieCalcActivityLevel.allCases) { level in
-                        Button {
-                            activityLevel = level
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(level.title)
-                                        .foregroundStyle(Color.ink)
-                                    Text(level.subtitle)
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(Color.inkTertiary)
-                                }
-                                Spacer()
-                                if activityLevel == level {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.food)
-                                }
-                            }
+                    Picker("Activity Level", selection: $activityLevel) {
+                        ForEach(CalorieCalcActivityLevel.allCases) { level in
+                            Text(level.title).tag(level)
                         }
                     }
+                    .pickerStyle(.menu)
                 } header: {
                     Text("Activity Level")
                 } footer: {
-                    Text("How much you work out in a typical week.")
+                    Text(activityLevel.subtitle)
                 }
 
                 Section("Goal") {
@@ -170,7 +158,7 @@ struct CalorieCalculatorView: View {
                     Text("Estimated using the Mifflin-St Jeor formula. This is a starting point — adjust based on how your weight trends over a few weeks.")
                 }
             }
-            .navigationTitle("Calorie Calculator")
+            .navigationTitle("Calculate Calorie Intake")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

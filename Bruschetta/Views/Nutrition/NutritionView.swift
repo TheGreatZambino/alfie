@@ -14,6 +14,7 @@ struct NutritionView: View {
     @State private var scannedResult: FoodResult?
     @State private var unmatchedBarcode: String?
     @State private var editingEntry: NutritionEntry?
+    @State private var editingWaterEntry: WaterEntry?
     @State private var showSettings = false
 
     @ObservedObject private var lookupService = FoodLookupService.shared
@@ -43,6 +44,8 @@ struct NutritionView: View {
                     if goal?.isWaterTrackingEnabled ?? true {
                         WaterCard(entries: todaysWaterEntries, goalOunces: goal?.waterGoalOunces ?? 64) { ounces in
                             addWater(ounces: ounces)
+                        } onEdit: { entry in
+                            editingWaterEntry = entry
                         } onDelete: { entry in
                             modelContext.delete(entry)
                             try? modelContext.save()
@@ -92,6 +95,9 @@ struct NutritionView: View {
             }
             .sheet(item: $editingEntry) { entry in
                 AddFoodEntryView(existingEntry: entry)
+            }
+            .sheet(item: $editingWaterEntry) { entry in
+                EditWaterEntryView(entry: entry)
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
@@ -238,6 +244,7 @@ private struct WaterCard: View {
     let entries: [WaterEntry]
     let goalOunces: Double
     let onAdd: (Double) -> Void
+    let onEdit: (WaterEntry) -> Void
     let onDelete: (WaterEntry) -> Void
 
     @State private var showCustomEntry = false
@@ -284,21 +291,44 @@ private struct WaterCard: View {
             if !entries.isEmpty {
                 VStack(spacing: 6) {
                     ForEach(entries) { entry in
-                        HStack {
-                            Text("\(Int(entry.ounces)) oz")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.inkSecondary)
-                            Spacer()
-                            Text(entry.date, style: .time)
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.inkTertiary)
+                        Button {
+                            onEdit(entry)
+                        } label: {
+                            HStack {
+                                Text("\(Int(entry.ounces)) oz")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color.inkSecondary)
+                                Spacer()
+                                Text(entry.date, style: .time)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color.inkTertiary)
+                            }
                         }
+                        .buttonStyle(.plain)
                         .contextMenu {
+                            Button {
+                                onEdit(entry)
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
                             Button(role: .destructive) {
                                 onDelete(entry)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
+                        } preview: {
+                            HStack {
+                                Text("\(Int(entry.ounces)) oz")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color.inkSecondary)
+                                Spacer()
+                                Text(entry.date, style: .time)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color.inkTertiary)
+                            }
+                            .padding(14)
+                            .frame(width: 260)
+                            .background(Color.card)
                         }
                     }
                 }

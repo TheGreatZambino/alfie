@@ -270,8 +270,7 @@ private struct LogFoodDetailView: View {
 
                     if amountMode == .servings {
                         HStack {
-                            TextField("Servings", value: $servingsCount, format: .number)
-                                .keyboardType(.decimalPad)
+                            AutoSelectNumberField(value: $servingsCount, placeholder: "Servings")
                             Stepper("", value: $servingsCount, in: 0.25...50, step: 0.5)
                                 .labelsHidden()
                             Text(servingsCount == 1 ? "serving" : "servings")
@@ -279,8 +278,7 @@ private struct LogFoodDetailView: View {
                         }
                     } else {
                         HStack {
-                            TextField("Amount", value: $weightValue, format: .number)
-                                .keyboardType(.decimalPad)
+                            AutoSelectNumberField(value: $weightValue, placeholder: "Amount")
                             Picker("Unit", selection: $weightUnit) {
                                 ForEach(WeightUnit.allCases) { unit in
                                     Text(unit.rawValue).tag(unit)
