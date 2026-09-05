@@ -24,10 +24,7 @@ struct CardioWorkout: Identifiable, Equatable {
         } else if let cyclingType = HKQuantityType.quantityType(forIdentifier: .distanceCycling),
                   let sum = workout.statistics(for: cyclingType)?.sumQuantity() {
             self.distanceMiles = sum.doubleValue(for: .mile())
-        } else if let totalDistance = workout.totalDistance {
-            // Some sources (e.g. Garmin Connect) save workouts with the legacy
-            // totalDistance/totalEnergyBurned properties instead of associated
-            // quantity samples, so statistics(for:) returns nil for them.
+        } else if let totalDistance = workout.legacyTotalDistance {
             self.distanceMiles = totalDistance.doubleValue(for: .mile())
         } else {
             self.distanceMiles = nil
@@ -36,12 +33,24 @@ struct CardioWorkout: Identifiable, Equatable {
         if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
            let sum = workout.statistics(for: energyType)?.sumQuantity() {
             self.activeCalories = sum.doubleValue(for: .kilocalorie())
-        } else if let totalEnergyBurned = workout.totalEnergyBurned {
+        } else if let totalEnergyBurned = workout.legacyTotalEnergyBurned {
             self.activeCalories = totalEnergyBurned.doubleValue(for: .kilocalorie())
         } else {
             self.activeCalories = nil
         }
     }
+}
+
+private extension HKWorkout {
+    /// Some sources (e.g. Garmin Connect) save workouts with the pre-iOS 18
+    /// totalDistance/totalEnergyBurned fields instead of associated quantity
+    /// samples, so `statistics(for:)` returns nil for them. Reading these via
+    /// KVC (rather than the deprecated Swift properties directly) is the only
+    /// way to fall back to that data without a compiler deprecation warning,
+    /// since there is no statistics-based replacement for a workout that
+    /// never had per-sample data to begin with.
+    var legacyTotalDistance: HKQuantity? { value(forKey: "totalDistance") as? HKQuantity }
+    var legacyTotalEnergyBurned: HKQuantity? { value(forKey: "totalEnergyBurned") as? HKQuantity }
 }
 
 extension HKWorkoutActivityType {

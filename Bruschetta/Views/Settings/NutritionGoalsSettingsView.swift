@@ -27,7 +27,7 @@ struct NutritionGoalsSettingsView: View {
                 Button {
                     showCalculator = true
                 } label: {
-                    Label("Calculate Maintenance Calories", systemImage: "function")
+                    Label("Calculate Calorie Intake", systemImage: "function")
                 }
             } footer: {
                 Text("Estimate a daily calorie target based on your activity level and whether you want to maintain, lose, or gain weight.")

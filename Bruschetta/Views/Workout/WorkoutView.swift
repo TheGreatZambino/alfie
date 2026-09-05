@@ -410,7 +410,7 @@ private struct TemplateTile: View {
 
 // MARK: - Card 4: Recent
 
-private enum RecentActivityItem: Identifiable {
+enum RecentActivityItem: Identifiable {
     case strength(WorkoutSession)
     case cardio(CardioWorkout)
 
