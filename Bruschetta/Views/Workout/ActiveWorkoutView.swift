@@ -120,17 +120,18 @@ struct ActiveWorkoutView: View {
                     VStack(spacing: 14) {
                         if draftEntries.isEmpty {
                             EmptyPlanCard { showExercisePicker = true }
-                        } else if let currentExerciseIndex {
-                            CurrentExerciseCard(
-                                entry: $draftEntries[currentExerciseIndex],
-                                lastTime: lastLoggedSet(for: draftEntries[currentExerciseIndex].exercise)
-                            )
-
-                            UpNextSection(entries: Array(draftEntries[(currentExerciseIndex + 1)...]))
-
-                            AddExerciseTile { showExercisePicker = true }
                         } else {
-                            AllSetsLoggedCard()
+                            ForEach(draftEntries.indices, id: \.self) { index in
+                                ExerciseCard(
+                                    entry: $draftEntries[index],
+                                    isFocused: index == currentExerciseIndex,
+                                    lastTime: lastLoggedSet(for: draftEntries[index].exercise)
+                                )
+                            }
+
+                            if currentExerciseIndex == nil {
+                                AllSetsLoggedCard()
+                            }
 
                             AddExerciseTile { showExercisePicker = true }
                         }
@@ -235,21 +236,24 @@ struct ActiveWorkoutView: View {
     }
 }
 
-// MARK: - Current exercise (all sets editable at once)
+// MARK: - Exercise card (every movement fully expanded, completable in any order)
 
-private struct CurrentExerciseCard: View {
+private struct ExerciseCard: View {
     @Binding var entry: LoggedDraftEntry
+    let isFocused: Bool
     let lastTime: LoggedSet?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("NOW")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.training)
-                        .textCase(.uppercase)
-                        .tracking(0.6)
+                    if isFocused {
+                        Text("NOW")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.training)
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+                    }
                     Text(entry.exercise.name)
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(Color.ink)
@@ -276,8 +280,11 @@ private struct CurrentExerciseCard: View {
         .padding(18)
         .background(Color.card)
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(cardBorder)
-        .shadow(color: Color.ink.opacity(0.06), radius: 12, y: 10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(isFocused ? Color.training.opacity(0.25) : Color.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.ink.opacity(0.06), radius: isFocused ? 12 : 4, y: isFocused ? 10 : 3)
     }
 
     private var setsList: some View {
@@ -302,11 +309,6 @@ private struct CurrentExerciseCard: View {
                 .foregroundStyle(Color.training)
         }
         .buttonStyle(.plain)
-    }
-
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: 26, style: .continuous)
-            .strokeBorder(Color.training.opacity(0.25), lineWidth: 1)
     }
 }
 
@@ -379,40 +381,6 @@ private struct ActiveSetRow: View {
             .frame(width: 26, height: 26)
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Up next
-
-private struct UpNextSection: View {
-    let entries: [LoggedDraftEntry]
-
-    var body: some View {
-        if !entries.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("UP NEXT")
-                    .sectionLabelStyle()
-
-                VStack(spacing: 8) {
-                    ForEach(entries) { entry in
-                        HStack {
-                            Text(entry.exercise.name)
-                                .font(.rowTitle)
-                                .foregroundStyle(Color.ink)
-                            Spacer()
-                            Text("\(entry.sets.count) sets")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.inkTertiary)
-                        }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 16)
-                        .background(Color.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.cardBorder, lineWidth: 1))
-                    }
-                }
-            }
-        }
     }
 }
 

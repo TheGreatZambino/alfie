@@ -24,6 +24,7 @@ struct NewTemplateView: View {
     @State private var name: String
     @State private var draftEntries: [DraftEntry]
     @State private var showExercisePicker = false
+    @State private var showDeleteConfirm = false
 
     init(template: WorkoutTemplate? = nil) {
         existingTemplate = template
@@ -56,6 +57,10 @@ struct NewTemplateView: View {
                             showExercisePicker = true
                         }
                     }
+
+                    if existingTemplate != nil {
+                        deleteTemplateButton
+                    }
                 }
                 .padding()
             }
@@ -79,7 +84,27 @@ struct NewTemplateView: View {
                     }
                 }
             }
+            .confirmationDialog("Delete this template?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete Template", role: .destructive) { deleteTemplate() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This can't be undone.")
+            }
         }
+    }
+
+    private var deleteTemplateButton: some View {
+        Button(role: .destructive) {
+            showDeleteConfirm = true
+        } label: {
+            Label("Delete Template", systemImage: "trash")
+                .font(.subheadline.bold())
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.red)
+        .padding(.top, 4)
     }
 
     private var nameCard: some View {
@@ -157,6 +182,13 @@ struct NewTemplateView: View {
                 modelContext.insert(setEntry)
             }
         }
+        try? modelContext.save()
+        dismiss()
+    }
+
+    private func deleteTemplate() {
+        guard let existingTemplate else { return }
+        modelContext.delete(existingTemplate)
         try? modelContext.save()
         dismiss()
     }
