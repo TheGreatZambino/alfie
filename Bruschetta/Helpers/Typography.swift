@@ -7,7 +7,7 @@ extension Font {
     /// Hero numeral used at screen level (Finances balance, Workouts timer).
     static let heroNumeralScreen = Font.system(size: 52, weight: .bold, design: .rounded)
     /// Hero numeral used inside a card row (Overview pillar rows).
-    static let heroNumeralCard = Font.system(size: 30, weight: .bold, design: .rounded)
+    static let heroNumeralCard = Font.system(size: 24, weight: .bold, design: .rounded)
     /// Card-level numeral (stat tiles, set weights).
     static let cardNumeral = Font.system(size: 23, weight: .bold, design: .rounded)
 

@@ -16,15 +16,25 @@ struct NutritionView: View {
     @State private var editingEntry: NutritionEntry?
     @State private var editingWaterEntry: WaterEntry?
     @State private var showSettings = false
+    @State private var showDatePicker = false
+    @State private var selectedDate = Date()
 
     @ObservedObject private var lookupService = FoodLookupService.shared
 
     private var todaysEntries: [NutritionEntry] {
-        allEntries.filter { Calendar.current.isDateInToday($0.date) }
+        allEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
     private var todaysWaterEntries: [WaterEntry] {
-        allWaterEntries.filter { Calendar.current.isDateInToday($0.date) }
+        allWaterEntries.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+    }
+
+    /// Stamps a newly-logged entry with the currently browsed day but the real time-of-day,
+    /// so quick-add entries on a past day still sort sensibly within that day.
+    private func timestampOnSelectedDate() -> Date {
+        let calendar = Calendar.current
+        let time = calendar.dateComponents([.hour, .minute, .second], from: Date())
+        return calendar.date(bySettingHour: time.hour ?? 0, minute: time.minute ?? 0, second: time.second ?? 0, of: selectedDate) ?? selectedDate
     }
 
     private var goal: NutritionGoals? { goals.first }
@@ -38,6 +48,8 @@ struct NutritionView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     header
+
+                    dateNavHeader
 
                     TodayCard(entries: todaysEntries, goal: goal)
 
@@ -87,11 +99,11 @@ struct NutritionView: View {
                 }
             }
             .sheet(isPresented: $showAddFood) {
-                AddFoodEntryView(unmatchedBarcode: unmatchedBarcode, defaultMealType: addFoodDefaultMeal)
+                AddFoodEntryView(unmatchedBarcode: unmatchedBarcode, defaultMealType: addFoodDefaultMeal, logDate: selectedDate)
                     .onDisappear { unmatchedBarcode = nil }
             }
             .sheet(item: $scannedResult) { result in
-                AddFoodEntryView(prefillResult: result)
+                AddFoodEntryView(prefillResult: result, logDate: selectedDate)
             }
             .sheet(item: $editingEntry) { entry in
                 AddFoodEntryView(existingEntry: entry)
@@ -101,6 +113,9 @@ struct NutritionView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showDatePicker) {
+                NutritionDatePickerSheet(selectedDate: $selectedDate)
             }
         }
     }
@@ -152,6 +167,58 @@ struct NutritionView: View {
         .padding(.bottom, 6)
     }
 
+    private var dateNavHeader: some View {
+        HStack {
+            Button {
+                changeDay(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.inkSecondary)
+                    .frame(width: 32, height: 32)
+            }
+
+            Spacer()
+
+            Button {
+                showDatePicker = true
+            } label: {
+                HStack(spacing: 5) {
+                    Text(selectedDateLabel)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.inkTertiary)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                changeDay(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Calendar.current.isDateInToday(selectedDate) ? Color.inkTertiary.opacity(0.4) : Color.inkSecondary)
+                    .frame(width: 32, height: 32)
+            }
+            .disabled(Calendar.current.isDateInToday(selectedDate))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectedDateLabel: String {
+        if Calendar.current.isDateInToday(selectedDate) { return "Today" }
+        if Calendar.current.isDateInYesterday(selectedDate) { return "Yesterday" }
+        return selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    private func changeDay(by days: Int) {
+        guard let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) else { return }
+        selectedDate = newDate
+    }
+
     private var headlineText: String {
         if caloriesRemaining < 0 {
             return "Over by \(Int(-caloriesRemaining).formatted())"
@@ -169,7 +236,7 @@ struct NutritionView: View {
     }
 
     private func addWater(ounces: Double) {
-        modelContext.insert(WaterEntry(ounces: ounces))
+        modelContext.insert(WaterEntry(date: timestampOnSelectedDate(), ounces: ounces))
         try? modelContext.save()
     }
 
@@ -473,5 +540,61 @@ private struct MealSection: View {
             }
             .cardStyle()
         }
+    }
+}
+
+// MARK: - Date Picker Sheet
+
+private struct NutritionDatePickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedDate: Date
+    @State private var pickedDate: Date
+
+    init(selectedDate: Binding<Date>) {
+        self._selectedDate = selectedDate
+        self._pickedDate = State(initialValue: selectedDate.wrappedValue)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                DatePicker("", selection: $pickedDate, in: ...Date(), displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .tint(.food)
+                    .labelsHidden()
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    pickedDate = Date()
+                } label: {
+                    Text("Go to Today")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.food)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.foodTint)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+            .navigationTitle("Select Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        selectedDate = pickedDate
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.height(560), .large])
+        .presentationDragIndicator(.visible)
     }
 }

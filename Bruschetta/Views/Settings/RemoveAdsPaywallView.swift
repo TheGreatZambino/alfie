@@ -17,7 +17,7 @@ struct RemoveAdsPaywallView: View {
                         Text("Alfie Track Plus")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Color.ink)
-                        Text("Remove ads from Nutrition and Workouts, everywhere in Alfie Track.")
+                        Text("Remove ads everywhere in Alfie Track.")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(Color.inkTertiary)
                             .multilineTextAlignment(.center)
@@ -25,7 +25,7 @@ struct RemoveAdsPaywallView: View {
                     .padding(.top, 12)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        featureRow(icon: "nosign", text: "No banner ads on Nutrition or Workouts")
+                        featureRow(icon: "nosign", text: "No ads anywhere in the app")
                         featureRow(icon: "heart.fill", text: "Supports ongoing development of Alfie Track")
                     }
                     .padding(16)

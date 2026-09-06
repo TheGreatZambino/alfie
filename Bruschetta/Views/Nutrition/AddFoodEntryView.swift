@@ -19,12 +19,14 @@ struct AddFoodEntryView: View {
     private let unmatchedBarcode: String?
     private let defaultMealType: MealType?
     private let existingEntry: NutritionEntry?
+    private let logDate: Date
 
-    init(prefillResult: FoodResult? = nil, unmatchedBarcode: String? = nil, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil) {
+    init(prefillResult: FoodResult? = nil, unmatchedBarcode: String? = nil, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, logDate: Date = Date()) {
         self.prefillResult = prefillResult
         self.unmatchedBarcode = unmatchedBarcode
         self.defaultMealType = defaultMealType
         self.existingEntry = existingEntry
+        self.logDate = logDate
     }
 
     var body: some View {
@@ -107,13 +109,13 @@ struct AddFoodEntryView: View {
                 }
             }
             .sheet(item: $selectedResult) { result in
-                LogFoodDetailView(result: result, defaultMealType: defaultMealType, existingEntry: existingEntry) { dismiss() }
+                LogFoodDetailView(result: result, defaultMealType: defaultMealType, existingEntry: existingEntry, logDate: logDate) { dismiss() }
             }
             .sheet(item: $selectedLocalItem) { item in
-                LogFoodDetailView(foodItem: item, defaultMealType: defaultMealType, existingEntry: existingEntry) { dismiss() }
+                LogFoodDetailView(foodItem: item, defaultMealType: defaultMealType, existingEntry: existingEntry, logDate: logDate) { dismiss() }
             }
             .sheet(isPresented: $showCustomForm) {
-                CustomFoodFormView(barcode: prefillResult?.barcode ?? unmatchedBarcode, defaultMealType: defaultMealType, existingEntry: existingEntry) { dismiss() }
+                CustomFoodFormView(barcode: prefillResult?.barcode ?? unmatchedBarcode, defaultMealType: defaultMealType, existingEntry: existingEntry, logDate: logDate) { dismiss() }
             }
             .onAppear {
                 if let prefillResult {
@@ -184,24 +186,27 @@ private struct LogFoodDetailView: View {
     @State private var weightValue: Double = 100
     @State private var weightUnit: WeightUnit = .grams
     @State private var mealType: MealType?
+    @State private var date: Date
     @State private var showEditFood = false
 
-    init(result: FoodResult, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, onLogged: @escaping () -> Void) {
+    init(result: FoodResult, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, logDate: Date = Date(), onLogged: @escaping () -> Void) {
         self.result = result
         self.existingFoodItem = nil
         self.existingEntry = existingEntry
         self.onLogged = onLogged
         _mealType = State(initialValue: existingEntry?.mealType ?? defaultMealType)
+        _date = State(initialValue: existingEntry?.date ?? logDate)
         _servingsCount = State(initialValue: existingEntry?.quantity ?? 1)
         _weightValue = State(initialValue: result.servingSizeGrams > 0 ? result.servingSizeGrams : 100)
     }
 
-    init(foodItem: FoodItem, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, onLogged: @escaping () -> Void) {
+    init(foodItem: FoodItem, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, logDate: Date = Date(), onLogged: @escaping () -> Void) {
         self.result = nil
         self.existingFoodItem = foodItem
         self.existingEntry = existingEntry
         self.onLogged = onLogged
         _mealType = State(initialValue: existingEntry?.mealType ?? defaultMealType)
+        _date = State(initialValue: existingEntry?.date ?? logDate)
         let grams = foodItem.servingSizeGrams > 0 ? foodItem.servingSizeGrams : 100
         if let existingEntry, existingEntry.foodItem === foodItem {
             _servingsCount = State(initialValue: existingEntry.quantity)
@@ -310,6 +315,11 @@ private struct LogFoodDetailView: View {
                     }
                 }
 
+                Section("Date") {
+                    DatePicker("Logged at", selection: $date)
+                        .datePickerStyle(.compact)
+                }
+
                 Section {
                     HStack {
                         Text("Calories")
@@ -362,8 +372,9 @@ private struct LogFoodDetailView: View {
             existingEntry.foodItem = foodItem
             existingEntry.quantity = quantity
             existingEntry.mealType = mealType
+            existingEntry.date = date
         } else {
-            let entry = NutritionEntry(mealType: mealType, quantity: quantity, foodItem: foodItem)
+            let entry = NutritionEntry(date: date, mealType: mealType, quantity: quantity, foodItem: foodItem)
             modelContext.insert(entry)
         }
         try? modelContext.save()
@@ -398,13 +409,15 @@ private struct CustomFoodFormView: View {
     @State private var fiberText = ""
     @State private var sodiumText = ""
     @State private var mealType: MealType?
+    @State private var date: Date
     @State private var showMoreNutrients = false
 
-    init(barcode: String?, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, onLogged: @escaping () -> Void) {
+    init(barcode: String?, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, logDate: Date = Date(), onLogged: @escaping () -> Void) {
         self.barcode = barcode
         self.existingEntry = existingEntry
         self.onLogged = onLogged
         _mealType = State(initialValue: existingEntry?.mealType ?? defaultMealType)
+        _date = State(initialValue: existingEntry?.date ?? logDate)
     }
 
     var body: some View {
@@ -426,6 +439,11 @@ private struct CustomFoodFormView: View {
                     numberField("Sugar (g)", text: $sugarText)
                     numberField("Fiber (g)", text: $fiberText)
                     numberField("Sodium (mg)", text: $sodiumText)
+                }
+
+                Section("Date") {
+                    DatePicker("Logged at", selection: $date)
+                        .datePickerStyle(.compact)
                 }
 
                 Section {
@@ -486,8 +504,9 @@ private struct CustomFoodFormView: View {
             existingEntry.foodItem = foodItem
             existingEntry.quantity = 1
             existingEntry.mealType = mealType
+            existingEntry.date = date
         } else {
-            let entry = NutritionEntry(mealType: mealType, quantity: 1, foodItem: foodItem)
+            let entry = NutritionEntry(date: date, mealType: mealType, quantity: 1, foodItem: foodItem)
             modelContext.insert(entry)
         }
         try? modelContext.save()

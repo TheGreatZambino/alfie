@@ -2,7 +2,9 @@ import SwiftUI
 
 struct LockView: View {
     @EnvironmentObject private var authManager: AuthManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var didFail = false
+    @State private var isAuthenticating = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -37,12 +39,17 @@ struct LockView: View {
             Spacer()
         }
         .padding()
-        .task {
-            await authenticate()
+        .onChange(of: scenePhase, initial: true) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task { await authenticate() }
         }
     }
 
     private func authenticate() async {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+
         didFail = false
         let success = await authManager.unlockWithBiometrics()
         didFail = !success

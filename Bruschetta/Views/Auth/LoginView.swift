@@ -37,7 +37,7 @@ struct LoginView: View {
             )
             .padding(.horizontal, 24)
 
-            Text("By continuing, you agree to our Terms and Privacy Policy.")
+            Text("By continuing, you agree to my Terms and Privacy Policy.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)

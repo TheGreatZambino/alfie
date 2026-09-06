@@ -15,6 +15,7 @@ struct OverviewView: View {
     @Query private var transactions: [Transaction]
     @Query private var nutritionEntries: [NutritionEntry]
     @Query private var nutritionGoals: [NutritionGoals]
+    @Query private var waterEntries: [WaterEntry]
 
     @ObservedObject private var health = HealthKitManager.shared
     @StateObject private var viewModel = OverviewViewModel()
@@ -67,7 +68,7 @@ struct OverviewView: View {
         .alert("Mail Not Set Up", isPresented: $showMailUnavailableAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Please set up the Mail app on your device, or email us directly at \(feedbackRecipient).")
+            Text("Please set up the Mail app on your device, or email me directly at \(feedbackRecipient).")
         }
         .refreshable { refresh() }
         .onAppear { refresh() }
@@ -168,12 +169,19 @@ struct OverviewView: View {
         let caloriesToday = nutritionEntries
             .filter { calendar.isDateInToday($0.date) }
             .reduce(0) { $0 + $1.calories }
+        let goal = nutritionGoals.first
+        let ouncesToday = waterEntries
+            .filter { calendar.isDateInToday($0.date) }
+            .reduce(0) { $0 + $1.ounces }
 
         WidgetSnapshotStore.update { snapshot in
             snapshot.finance = income != nil
                 ? FinanceSnapshot(incomeThisPeriod: viewModel.incomeThisPeriod, remainingThisPeriod: viewModel.remainingThisPeriod, periodEnd: periodEnd)
                 : nil
             snapshot.nutrition = NutritionSnapshot(caloriesToday: caloriesToday, calorieGoal: viewModel.calorieGoal)
+            snapshot.water = (goal?.isWaterTrackingEnabled ?? true)
+                ? WaterSnapshot(ouncesToday: ouncesToday, goalOunces: goal?.waterGoalOunces ?? 64)
+                : nil
         }
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshotStore.homeWidgetKind)
     }
@@ -320,10 +328,14 @@ private struct PillarRowsCard: View {
                 PillarRow(
                     pillar: .training,
                     label: "TRAINING",
-                    heroValue: "\(viewModel.strengthSessionsThisWeek)",
-                    supporting: "of \(viewModel.strengthGoal) sessions · \(viewModel.stepsThisWeek.formatted()) steps"
+                    heroValue: viewModel.stepsThisWeek.formatted(),
+                    supporting: "steps this week",
+                    visualHeight: nil
                 ) {
-                    WeekGrid(days: viewModel.weekdayCompletion)
+                    VStack(alignment: .leading, spacing: 10) {
+                        WeekTypeRow(label: "STRENGTH", days: viewModel.weekdayCompletion, icon: "figure.strengthtraining.traditional") { $0.hasStrength }
+                        WeekTypeRow(label: "CARDIO", days: viewModel.weekdayCompletion, icon: "figure.walk") { $0.hasCardio }
+                    }
                 } action: {
                     selectedTab = .workouts
                 }
@@ -379,6 +391,7 @@ private struct PillarRow<Visual: View>: View {
     let label: String
     let heroValue: String
     let supporting: String
+    var visualHeight: CGFloat? = 8
     @ViewBuilder var visual: () -> Visual
     let action: () -> Void
 
@@ -404,22 +417,36 @@ private struct PillarRow<Visual: View>: View {
                         .foregroundStyle(Color.inkSecondary)
                 }
 
-                visual()
-                    .frame(height: 8)
+                if let visualHeight {
+                    visual()
+                        .frame(height: visualHeight)
+                } else {
+                    visual()
+                }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
     }
 }
 
-private struct WeekGrid: View {
+private struct WeekTypeRow: View {
+    let label: String
     let days: [DayCompletion]
+    let icon: String
+    let isActive: (DayCompletion) -> Bool
 
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(days) { day in
-                cell(for: day)
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.inkTertiary)
+                .tracking(0.4)
+
+            HStack(spacing: 5) {
+                ForEach(days) { day in
+                    cell(for: day)
+                }
             }
         }
     }
@@ -427,35 +454,24 @@ private struct WeekGrid: View {
     @ViewBuilder
     private func cell(for day: DayCompletion) -> some View {
         let isFuture = Calendar.current.startOfDay(for: day.date) > Calendar.current.startOfDay(for: Date())
+        let active = isActive(day)
 
         RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .fill(fillColor(for: day, isFuture: isFuture))
+            .fill(active ? Color.training : (isFuture ? Color.ink.opacity(0.04) : Color.ink.opacity(0.06)))
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(isFuture ? Color.ink.opacity(0.14) : .clear, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .strokeBorder(isFuture && !active ? Color.ink.opacity(0.14) : .clear, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             )
-            .overlay(icon(for: day, isFuture: isFuture))
+            .overlay(
+                Group {
+                    if active {
+                        Image(systemName: icon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            )
             .frame(height: 26)
             .frame(maxWidth: .infinity)
-    }
-
-    private func fillColor(for day: DayCompletion, isFuture: Bool) -> Color {
-        if day.hasStrength { return .training }
-        if day.hasCardio { return Color.training.opacity(0.14) }
-        if isFuture { return Color.ink.opacity(0.04) }
-        return Color.ink.opacity(0.06)
-    }
-
-    @ViewBuilder
-    private func icon(for day: DayCompletion, isFuture: Bool) -> some View {
-        if day.hasStrength {
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
-        } else if day.hasCardio {
-            Image(systemName: "figure.walk")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.training)
-        }
     }
 }
