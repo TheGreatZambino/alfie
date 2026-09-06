@@ -12,7 +12,8 @@ struct WorkoutView: View {
     @State private var showNewTemplate = false
     @State private var editingTemplate: WorkoutTemplate?
     @State private var showStartWorkoutPicker = false
-    @State private var activeTemplate: WorkoutTemplate?
+    @State private var showRepeatWorkoutPicker = false
+    @State private var activePlan: WorkoutPlan?
     @State private var todaySteps = 0
     @State private var showSettings = false
 
@@ -24,7 +25,7 @@ struct WorkoutView: View {
 
                     StartCard(template: mostRecentTemplate, hasAnyTemplate: !templates.isEmpty, lastDoneDate: mostRecentTemplate != nil ? sessions.first?.date : nil) {
                         if let mostRecentTemplate {
-                            activeTemplate = mostRecentTemplate
+                            activePlan = .template(mostRecentTemplate)
                         } else {
                             showStartWorkoutPicker = true
                         }
@@ -33,7 +34,7 @@ struct WorkoutView: View {
                     StatTilesRow(sessions: sessionsThisWeek, goal: workoutGoals.first?.weeklyStrengthGoal ?? 3, cardioMinutes: cardioMinutesThisWeek, steps: todaySteps)
 
                     TemplatesCard(templates: Array(templates.prefix(3)), mostRecentTemplateID: mostRecentTemplate?.id) { template in
-                        activeTemplate = template
+                        activePlan = .template(template)
                     } onEdit: { template in
                         editingTemplate = template
                     } onNew: {
@@ -62,17 +63,29 @@ struct WorkoutView: View {
             .sheet(isPresented: $showStartWorkoutPicker) {
                 StartWorkoutPickerView(templates: templates) { template in
                     showStartWorkoutPicker = false
-                    activeTemplate = template
+                    activePlan = .template(template)
                 } onEdit: { template in
                     showStartWorkoutPicker = false
                     editingTemplate = template
                 } onCreateNew: {
                     showStartWorkoutPicker = false
                     showNewTemplate = true
+                } onStartFresh: {
+                    showStartWorkoutPicker = false
+                    activePlan = .fresh()
+                } onRepeatWorkout: {
+                    showStartWorkoutPicker = false
+                    showRepeatWorkoutPicker = true
                 }
             }
-            .fullScreenCover(item: $activeTemplate) { template in
-                ActiveWorkoutView(template: template)
+            .sheet(isPresented: $showRepeatWorkoutPicker) {
+                RepeatWorkoutPickerView(sessions: sessions) { session in
+                    showRepeatWorkoutPicker = false
+                    activePlan = .repeating(session)
+                }
+            }
+            .fullScreenCover(item: $activePlan) { plan in
+                ActiveWorkoutView(plan: plan)
             }
             .task {
                 await health.requestAuthorizationAndFetch()
@@ -471,18 +484,23 @@ private struct RecentRow: View {
     var body: some View {
         switch item {
         case .strength(let session):
-            row(
-                icon: "dumbbell.fill",
-                title: session.name,
-                detail: "\(relativeDate(session.date)) · \(session.durationMinutes) min",
-                value: "\(Int(session.totalVolume))",
-                unit: "lb moved"
-            )
+            NavigationLink {
+                WorkoutSessionDetailView(session: session)
+            } label: {
+                row(
+                    icon: "dumbbell.fill",
+                    title: session.name,
+                    detail: "\(relativeDate(session.date)) · \(session.durationMinutes) min",
+                    value: "\(Int(session.totalVolume))",
+                    unit: "lb moved"
+                )
+            }
+            .buttonStyle(.plain)
         case .cardio(let workout):
             row(
                 icon: workout.activityType.symbolName,
                 title: workout.activityType.displayName,
-                detail: "\(relativeDate(workout.startDate)) · \(workout.sourceName)",
+                detail: "\(relativeDate(workout.startDate)) · \(workout.statsSummary ?? workout.sourceName)",
                 value: "\(Int(workout.duration / 60))",
                 unit: "min"
             )
@@ -532,6 +550,8 @@ private struct StartWorkoutPickerView: View {
     let onStart: (WorkoutTemplate) -> Void
     let onEdit: (WorkoutTemplate) -> Void
     let onCreateNew: () -> Void
+    let onStartFresh: () -> Void
+    let onRepeatWorkout: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -541,6 +561,8 @@ private struct StartWorkoutPickerView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 12) {
+                            QuickStartRow(onStartFresh: onStartFresh, onRepeatWorkout: onRepeatWorkout)
+
                             ForEach(templates) { template in
                                 TemplateCard(template: template) {
                                     onStart(template)
@@ -601,9 +623,42 @@ private struct StartWorkoutPickerView: View {
             .padding(.horizontal, 40)
             .padding(.top, 4)
 
+            QuickStartRow(onStartFresh: onStartFresh, onRepeatWorkout: onRepeatWorkout)
+                .padding(.horizontal, 40)
+
             Spacer()
             Spacer()
         }
+    }
+}
+
+private struct QuickStartRow: View {
+    let onStartFresh: () -> Void
+    let onRepeatWorkout: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            quickStartButton(title: "Start Fresh", icon: "plus", action: onStartFresh)
+            quickStartButton(title: "Repeat a Workout", icon: "arrow.counterclockwise", action: onRepeatWorkout)
+        }
+    }
+
+    private func quickStartButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.subheadline.weight(.semibold))
+                Text(title)
+                    .font(.subheadline.bold())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+            }
+            .foregroundStyle(Color.training)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.training.opacity(0.35), lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -693,6 +748,54 @@ private struct TemplateCard: View {
             .cardStyle(radius: 20)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Repeat a past workout
+
+private struct RepeatWorkoutPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let sessions: [WorkoutSession]
+    let onRepeat: (WorkoutSession) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if sessions.isEmpty {
+                    ContentUnavailableView("No Past Workouts", systemImage: "arrow.counterclockwise", description: Text("Finish a workout and it'll show up here to repeat."))
+                } else {
+                    List(sessions) { session in
+                        Button {
+                            onRepeat(session)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.name)
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(Color.ink)
+                                    Text("\(session.date.formatted(date: .abbreviated, time: .omitted)) · \(session.exerciseCount) exercise\(session.exerciseCount == 1 ? "" : "s")")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.inkTertiary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.inkTertiary)
+                            }
+                        }
+                    }
+                }
+            }
+            .background(Color.paper)
+            .navigationTitle("Repeat a Workout")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
     }
 }
 

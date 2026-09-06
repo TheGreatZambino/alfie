@@ -37,22 +37,26 @@ struct WorkoutHistoryView: View {
     private func row(for item: RecentActivityItem) -> some View {
         switch item {
         case .strength(let session):
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(session.name)
-                        .font(.subheadline.bold())
-                    Text(session.date.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(Int(session.totalVolume)) lb")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.training)
-                    Text("\(session.exerciseCount) exercise\(session.exerciseCount == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            NavigationLink {
+                WorkoutSessionDetailView(session: session)
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.name)
+                            .font(.subheadline.bold())
+                        Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(Int(session.totalVolume)) lb")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.training)
+                        Text("\(session.exerciseCount) exercise\(session.exerciseCount == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .swipeActions {
@@ -76,7 +80,7 @@ struct WorkoutHistoryView: View {
                     Text("\(Int(workout.duration / 60)) min")
                         .font(.subheadline)
                         .foregroundStyle(Color.training)
-                    Text(workout.sourceName)
+                    Text(workout.statsSummary ?? workout.sourceName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

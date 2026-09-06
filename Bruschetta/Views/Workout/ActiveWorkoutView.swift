@@ -2,6 +2,56 @@ import SwiftUI
 import SwiftData
 import Combine
 
+/// A workout to run, decoupled from persisted `WorkoutTemplate`s so a workout can also be
+/// started fresh (no exercises yet) or repeated from a prior session.
+struct WorkoutPlan: Identifiable {
+    let id = UUID()
+    var name: String
+    var templateName: String?
+    var entries: [WorkoutPlanEntry]
+
+    static func template(_ template: WorkoutTemplate) -> WorkoutPlan {
+        let entries: [WorkoutPlanEntry] = template.sortedEntries.compactMap { entry in
+            guard let exercise = entry.exercise else { return nil }
+            let sets = entry.sortedSetEntries.map { WorkoutPlanSet(reps: $0.targetReps, weight: $0.targetWeight) }
+            return WorkoutPlanEntry(exercise: exercise, sets: sets.isEmpty ? [WorkoutPlanSet(reps: 10, weight: 0)] : sets)
+        }
+        return WorkoutPlan(name: template.name, templateName: template.name, entries: entries)
+    }
+
+    static func fresh() -> WorkoutPlan {
+        WorkoutPlan(name: "Workout", templateName: nil, entries: [])
+    }
+
+    static func repeating(_ session: WorkoutSession) -> WorkoutPlan {
+        var order: [Exercise] = []
+        var setsByExercise: [PersistentIdentifier: [WorkoutPlanSet]] = [:]
+        for loggedSet in (session.sets ?? []).sorted(by: { $0.setNumber < $1.setNumber }) {
+            guard let exercise = loggedSet.exercise else { continue }
+            if setsByExercise[exercise.id] == nil {
+                order.append(exercise)
+                setsByExercise[exercise.id] = []
+            }
+            setsByExercise[exercise.id]?.append(WorkoutPlanSet(reps: loggedSet.reps, weight: loggedSet.weight))
+        }
+        let entries = order.map { exercise in
+            WorkoutPlanEntry(exercise: exercise, sets: setsByExercise[exercise.id] ?? [WorkoutPlanSet(reps: 10, weight: 0)])
+        }
+        return WorkoutPlan(name: session.name, templateName: nil, entries: entries)
+    }
+}
+
+struct WorkoutPlanEntry: Identifiable {
+    let id = UUID()
+    var exercise: Exercise
+    var sets: [WorkoutPlanSet]
+}
+
+struct WorkoutPlanSet {
+    var reps: Int
+    var weight: Double
+}
+
 private struct LoggedDraftSet: Identifiable {
     let id = UUID()
     var reps: Int
@@ -15,28 +65,26 @@ private struct LoggedDraftEntry: Identifiable {
     var sets: [LoggedDraftSet]
 
     var isComplete: Bool { sets.allSatisfy(\.isLogged) }
-    var currentSetIndex: Int? { sets.firstIndex { !$0.isLogged } }
 }
 
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    let template: WorkoutTemplate
+    let plan: WorkoutPlan
 
     @State private var startTime = Date()
     @State private var now = Date()
     @State private var draftEntries: [LoggedDraftEntry]
     @State private var showDiscardConfirm = false
+    @State private var showExercisePicker = false
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    init(template: WorkoutTemplate) {
-        self.template = template
-        _draftEntries = State(initialValue: template.sortedEntries.compactMap { entry in
-            guard let exercise = entry.exercise else { return nil }
-            let sets = entry.sortedSetEntries.map { LoggedDraftSet(reps: $0.targetReps, weight: $0.targetWeight) }
-            return LoggedDraftEntry(exercise: exercise, sets: sets.isEmpty ? [LoggedDraftSet(reps: 10, weight: 0)] : sets)
+    init(plan: WorkoutPlan) {
+        self.plan = plan
+        _draftEntries = State(initialValue: plan.entries.map { entry in
+            LoggedDraftEntry(exercise: entry.exercise, sets: entry.sets.map { LoggedDraftSet(reps: $0.reps, weight: $0.weight) })
         })
     }
 
@@ -65,32 +113,44 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    if let currentExerciseIndex {
-                        CurrentExerciseCard(
-                            entry: $draftEntries[currentExerciseIndex],
-                            lastTime: lastLoggedSet(for: draftEntries[currentExerciseIndex].exercise)
-                        )
+            VStack(spacing: 0) {
+                header
 
-                        UpNextSection(entries: Array(draftEntries[(currentExerciseIndex + 1)...]))
-                    } else {
-                        AllSetsLoggedCard()
+                ScrollView {
+                    VStack(spacing: 14) {
+                        if draftEntries.isEmpty {
+                            EmptyPlanCard { showExercisePicker = true }
+                        } else if let currentExerciseIndex {
+                            CurrentExerciseCard(
+                                entry: $draftEntries[currentExerciseIndex],
+                                lastTime: lastLoggedSet(for: draftEntries[currentExerciseIndex].exercise)
+                            )
+
+                            UpNextSection(entries: Array(draftEntries[(currentExerciseIndex + 1)...]))
+
+                            AddExerciseTile { showExercisePicker = true }
+                        } else {
+                            AllSetsLoggedCard()
+
+                            AddExerciseTile { showExercisePicker = true }
+                        }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 20)
+                .background(Color.paper)
             }
-            .background(Color.paper)
             .toolbar(.hidden, for: .navigationBar)
             .tint(.training)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                header
-            }
             .confirmationDialog("Discard this workout?", isPresented: $showDiscardConfirm, titleVisibility: .visible) {
                 Button("Discard Workout", role: .destructive) { dismiss() }
                 Button("Keep Going", role: .cancel) {}
+            }
+            .sheet(isPresented: $showExercisePicker) {
+                ExercisePickerView(alreadySelected: Set(draftEntries.map(\.exercise.id))) { exercise in
+                    draftEntries.append(LoggedDraftEntry(exercise: exercise, sets: [LoggedDraftSet(reps: 10, weight: 0)]))
+                }
             }
             .onReceive(timer) { value in
                 now = value
@@ -102,7 +162,7 @@ struct ActiveWorkoutView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(template.name)
+                Text(plan.name)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
 
@@ -124,6 +184,8 @@ struct ActiveWorkoutView: View {
                     .padding(.vertical, 5)
                     .padding(.horizontal, 12)
                     .background(Capsule().fill(.white.opacity(0.18)))
+                    .opacity(totalSets > 0 ? 1 : 0.5)
+                    .disabled(totalSets == 0)
             }
 
             HStack(alignment: .lastTextBaseline, spacing: 10) {
@@ -145,7 +207,7 @@ struct ActiveWorkoutView: View {
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 20)
-        .background(Color.trainingFill)
+        .background(Color.trainingFill.ignoresSafeArea(edges: .top))
     }
 
     /// Most recent logged set for this exercise from prior sessions, for the "Last time" reference.
@@ -157,7 +219,7 @@ struct ActiveWorkoutView: View {
     }
 
     private func finish() {
-        let session = WorkoutSession(date: startTime, name: template.name, templateName: template.name, durationSeconds: elapsed)
+        let session = WorkoutSession(date: startTime, name: plan.name, templateName: plan.templateName, durationSeconds: elapsed)
         modelContext.insert(session)
 
         for entry in draftEntries {
@@ -173,7 +235,7 @@ struct ActiveWorkoutView: View {
     }
 }
 
-// MARK: - Current exercise (single set focus)
+// MARK: - Current exercise (all sets editable at once)
 
 private struct CurrentExerciseCard: View {
     @Binding var entry: LoggedDraftEntry
@@ -207,118 +269,116 @@ private struct CurrentExerciseCard: View {
                 }
             }
 
-            if entry.sets.contains(where: \.isLogged) {
-                VStack(spacing: 8) {
-                    ForEach(entry.sets.indices.filter { entry.sets[$0].isLogged }, id: \.self) { index in
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(Color.training)
-                                .frame(width: 24, height: 24)
-                                .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(.white))
-                            Text("Set \(index + 1)")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color.inkTertiary)
-                            Spacer()
-                            Text("\(Int(entry.sets[index].weight)) lb × \(entry.sets[index].reps)")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Color.inkTertiary)
-                        }
-                        .padding(.vertical, 11)
-                        .padding(.horizontal, 14)
-                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.fill))
-                    }
-                }
-            }
+            setsList
 
-            if let currentIndex = entry.currentSetIndex {
-                ActiveSetPanel(setNumber: currentIndex + 1, set: $entry.sets[currentIndex], target: lastTime) {
-                    entry.sets[currentIndex].isLogged = true
-                }
-            }
+            addSetButton
         }
         .padding(18)
         .background(Color.card)
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(Color.training.opacity(0.25), lineWidth: 1)
-        )
+        .overlay(cardBorder)
         .shadow(color: Color.ink.opacity(0.06), radius: 12, y: 10)
+    }
+
+    private var setsList: some View {
+        VStack(spacing: 8) {
+            ForEach(entry.sets.indices, id: \.self) { index in
+                ActiveSetRow(setNumber: index + 1, set: $entry.sets[index]) {
+                    _ = withAnimation(.snappy) {
+                        entry.sets.remove(at: index)
+                    }
+                }
+            }
+        }
+    }
+
+    private var addSetButton: some View {
+        Button {
+            let last = entry.sets.last
+            entry.sets.append(LoggedDraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0))
+        } label: {
+            Label("Add Set", systemImage: "plus")
+                .font(.caption.bold())
+                .foregroundStyle(Color.training)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .strokeBorder(Color.training.opacity(0.25), lineWidth: 1)
     }
 }
 
-private struct ActiveSetPanel: View {
+/// One editable set row: tap the leading circle to mark it logged, tap into
+/// the weight/reps fields to type a value directly (auto-selected on focus).
+private struct ActiveSetRow: View {
     let setNumber: Int
     @Binding var set: LoggedDraftSet
-    let target: LoggedSet?
-    let onLog: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
-        VStack(spacing: 14) {
-            HStack {
-                Text("Set \(setNumber)")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.training)
-                Spacer()
-                if let target {
-                    Text("target \(Int(target.weight)) × \(target.reps)")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.inkTertiary)
-                }
+        HStack(spacing: 8) {
+            logToggle
+
+            Text("\(setNumber)")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.inkTertiary)
+                .frame(minWidth: 16, alignment: .leading)
+
+            HStack(spacing: 4) {
+                SelectAllIntTextField(value: $set.reps)
+                    .frame(width: 32)
+                Text("reps")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.fill)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-            HStack(spacing: 0) {
-                stepperGroup(label: "WEIGHT") {
-                    Stepper(value: $set.weight, in: 0...999, step: 5) {
-                        Text("\(Int(set.weight))")
-                            .font(.cardNumeral)
-                            .foregroundStyle(Color.ink)
-                            .frame(minWidth: 44)
-                    }
-                }
-
-                Rectangle()
-                    .fill(Color.ink.opacity(0.08))
-                    .frame(width: 1)
-                    .padding(.vertical, 4)
-
-                stepperGroup(label: "REPS") {
-                    Stepper(value: $set.reps, in: 1...50) {
-                        Text("\(set.reps)")
-                            .font(.cardNumeral)
-                            .foregroundStyle(Color.ink)
-                            .frame(minWidth: 30)
-                    }
-                }
+            HStack(spacing: 4) {
+                SelectAllTextField(value: $set.weight)
+                    .frame(width: 52)
+                Text("lb")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.training, lineWidth: 1.5))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.fill)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-            Button(action: onLog) {
-                Text("Log set \(setNumber)")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(Color.trainingFill)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Spacer(minLength: 0)
+
+            Button(action: onDelete) {
+                Image(systemName: "minus.circle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.training, lineWidth: 1.5))
     }
 
-    private func stepperGroup<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 8) {
-            Text(label)
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(Color.inkTertiary)
-            content()
-                .labelsHidden()
+    private var logToggle: some View {
+        Button {
+            set.isLogged.toggle()
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(set.isLogged ? Color.training : Color.clear)
+                Circle()
+                    .strokeBorder(Color.training, lineWidth: 1.5)
+                if set.isLogged {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(width: 26, height: 26)
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
     }
 }
 
@@ -371,5 +431,61 @@ private struct AllSetsLoggedCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
+    }
+}
+
+private struct EmptyPlanCard: View {
+    let onAddExercise: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "list.bullet.rectangle.portrait")
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundStyle(Color.training)
+            Text("Add your first exercise")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.ink)
+            Text("Build this workout as you go.")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.inkTertiary)
+
+            Button(action: onAddExercise) {
+                Label("Add Exercise", systemImage: "plus")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Color.trainingFill)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 24)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+    }
+}
+
+private struct AddExerciseTile: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+                Text("Add Exercise")
+                    .font(.subheadline.bold())
+            }
+            .foregroundStyle(Color.training)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(Color.training.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

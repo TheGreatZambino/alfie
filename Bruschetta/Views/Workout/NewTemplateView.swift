@@ -302,7 +302,7 @@ private struct AddExerciseTile: View {
     }
 }
 
-private struct ExercisePickerView: View {
+struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Exercise.name) private var exercises: [Exercise]
 
@@ -370,7 +370,7 @@ private struct ExercisePickerView: View {
     }
 }
 
-private struct NewExerciseView: View {
+struct NewExerciseView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
