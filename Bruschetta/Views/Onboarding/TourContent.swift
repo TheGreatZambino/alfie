@@ -7,13 +7,16 @@ enum TourPage: Hashable {
     case finance
     case workouts
     case nutrition
+    case privacy
 
     /// Overview is always shown; the rest only appear for modules the user is tracking.
+    /// Privacy always closes out the tour, regardless of which modules are enabled.
     static func pages(for modules: Set<TrackedModule>) -> [TourPage] {
         var pages: [TourPage] = [.overview]
         if modules.contains(.finance) { pages.append(.finance) }
         if modules.contains(.workouts) { pages.append(.workouts) }
         if modules.contains(.nutrition) { pages.append(.nutrition) }
+        pages.append(.privacy)
         return pages
     }
 
@@ -23,6 +26,7 @@ enum TourPage: Hashable {
         case .finance: return "wallet.bifold.fill"
         case .workouts: return "figure.strengthtraining.traditional"
         case .nutrition: return "fork.knife"
+        case .privacy: return "lock.fill"
         }
     }
 
@@ -32,6 +36,7 @@ enum TourPage: Hashable {
         case .finance: return .money
         case .workouts: return .training
         case .nutrition: return .food
+        case .privacy: return .ink
         }
     }
 
@@ -41,6 +46,7 @@ enum TourPage: Hashable {
         case .finance: return "FINANCES"
         case .workouts: return "WORKOUTS"
         case .nutrition: return "NUTRITION"
+        case .privacy: return "YOUR DATA"
         }
     }
 
@@ -50,6 +56,7 @@ enum TourPage: Hashable {
         case .finance: return "Track where your money goes"
         case .workouts: return "Log strength, track cardio automatically"
         case .nutrition: return "Log food, hit your macros"
+        case .privacy: return "Your data stays on your device"
         }
     }
 
@@ -78,6 +85,12 @@ enum TourPage: Hashable {
                 "Scan a barcode, search, or reuse a recent item to log food",
                 "See calories and macros vs. your daily goals as you go",
                 "Entries sort themselves into breakfast, lunch, dinner, and snacks",
+            ]
+        case .privacy:
+            return [
+                "Every transaction, workout, and meal you log is stored locally on your device — not on a server we run",
+                "We're never able to see your amounts, exercises, or what you ate",
+                "We only track anonymous usage counts, like how many people log a transaction or finish a workout, so we know which features are worth improving",
             ]
         }
     }

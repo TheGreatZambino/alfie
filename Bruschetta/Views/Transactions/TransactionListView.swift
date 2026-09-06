@@ -39,6 +39,15 @@ struct TransactionListView: View {
                     }
                 }
             }
+
+            if !filtered.isEmpty {
+                Section {
+                    AdSlot()
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+            }
         }
         .navigationTitle("Transactions")
         .navigationBarTitleDisplayMode(.inline)

@@ -63,24 +63,27 @@ struct SettingsView: View {
                             if index > 0 {
                                 Divider().overlay(Color.hairline).padding(.leading, 60)
                             }
-                            HStack {
-                                settingsRow(icon: module.icon, tint: .ink, title: module.displayName, subtitle: nil, showChevron: false)
+                            HStack(spacing: 12) {
+                                IconBadge(systemName: module.icon, color: .ink, size: 32, shape: .roundedSquare(radius: 11))
+                                Text(module.displayName)
+                                    .font(.rowTitle)
+                                    .foregroundStyle(Color.ink)
                                 Spacer()
                                 Toggle("", isOn: moduleBinding(for: module))
                                     .labelsHidden()
                                     .tint(.money)
                             }
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 12)
                             .padding(.horizontal, 16)
                         }
                     }
 
                     settingsGroup(label: "REMINDERS") {
-                        ForEach(Array(orderedTrackedModules.enumerated()), id: \.element) { index, module in
+                        ForEach(Array(TrackedModule.allCases.enumerated()), id: \.element) { index, module in
                             if index > 0 {
                                 Divider().overlay(Color.hairline).padding(.leading, 60)
                             }
-                            ReminderRow(module: module)
+                            ReminderRow(module: module, isModuleTracked: moduleBinding(for: module))
                         }
                     }
 
@@ -95,8 +98,8 @@ struct SettingsView: View {
                             settingsRow(
                                 icon: "sparkles",
                                 tint: .training,
-                                title: subscriptions.isSubscribed ? "Manage Subscription" : "Remove Ads",
-                                subtitle: subscriptions.isSubscribed ? "Subscribed — no ads" : "$3.99/mo · no ads in Nutrition or Workouts"
+                                title: subscriptions.isSubscribed ? "Manage Subscription" : "Remove Ads - $3.99/month",
+                                subtitle: subscriptions.isSubscribed ? "Subscribed — no ads" : nil
                             )
                         }
                     }
@@ -181,10 +184,6 @@ struct SettingsView: View {
 
     private var trackedModules: Set<TrackedModule> {
         TrackedModule.set(fromRawValue: trackedModulesRaw)
-    }
-
-    private var orderedTrackedModules: [TrackedModule] {
-        TrackedModule.allCases.filter(trackedModules.contains)
     }
 
     private func moduleBinding(for module: TrackedModule) -> Binding<Bool> {
@@ -321,75 +320,61 @@ struct SettingsView: View {
     }
 }
 
-/// A single module's daily reminder toggle plus, when enabled, a time picker. Owns its own
-/// `@AppStorage` bindings keyed per-module so a `ForEach` over `TrackedModule` can instantiate
-/// one of these per tracked pillar.
+/// A single module's daily reminder toggle. Fires at the module's fixed default time(s) — users
+/// can only turn reminders on or off, not choose when they arrive. Always visible regardless of
+/// whether the module is currently tracked; turning one on for an untracked module first confirms
+/// whether to start tracking it. Owns its own `@AppStorage` binding keyed per-module so a
+/// `ForEach` over `TrackedModule` can instantiate one of these per pillar.
 private struct ReminderRow: View {
     let module: TrackedModule
+    let isModuleTracked: Binding<Bool>
 
     @ObservedObject private var notificationManager = NotificationManager.shared
     @AppStorage private var isEnabled: Bool
-    @AppStorage private var timeSeconds: Int
     @State private var showPermissionAlert = false
+    @State private var showTrackingConfirmation = false
 
-    init(module: TrackedModule) {
+    init(module: TrackedModule, isModuleTracked: Binding<Bool>) {
         self.module = module
+        self.isModuleTracked = isModuleTracked
         _isEnabled = AppStorage(wrappedValue: false, ReminderPreferenceKeys.enabled(for: module))
-        _timeSeconds = AppStorage(wrappedValue: module.defaultReminderSeconds, ReminderPreferenceKeys.timeSeconds(for: module))
-    }
-
-    private var timeBinding: Binding<Date> {
-        Binding(
-            get: {
-                Calendar.current.date(bySettingHour: timeSeconds / 3600, minute: (timeSeconds % 3600) / 60, second: 0, of: Date()) ?? Date()
-            },
-            set: { newDate in
-                let components = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                timeSeconds = (components.hour ?? 0) * 3600 + (components.minute ?? 0) * 60
-                if isEnabled {
-                    notificationManager.scheduleReminder(for: module, atSecondsFromMidnight: timeSeconds)
-                }
-            }
-        )
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                IconBadge(systemName: module.icon, color: .ink, size: 32, shape: .roundedSquare(radius: 11))
+        HStack(spacing: 12) {
+            IconBadge(systemName: module.icon, color: .ink, size: 32, shape: .roundedSquare(radius: 11))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(module.displayName)
-                        .font(.rowTitle)
-                        .foregroundStyle(Color.ink)
-                    Text(isEnabled ? "Daily at \(timeBinding.wrappedValue.formatted(date: .omitted, time: .shortened))" : "Off")
-                        .font(.rowDetail)
-                        .foregroundStyle(Color.inkTertiary)
-                }
-
-                Spacer()
-
-                Toggle("", isOn: Binding(get: { isEnabled }, set: handleToggle))
-                    .labelsHidden()
-                    .tint(.money)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(module.displayName)
+                    .font(.rowTitle)
+                    .foregroundStyle(Color.ink)
+                Text(isEnabled ? "On" : "Off")
+                    .font(.rowDetail)
+                    .foregroundStyle(Color.inkTertiary)
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
 
-            if isEnabled {
-                DatePicker("Reminder time", selection: timeBinding, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-            }
+            Spacer()
+
+            Toggle("", isOn: Binding(get: { isEnabled }, set: handleToggle))
+                .labelsHidden()
+                .tint(.money)
         }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
         .alert("Notifications Disabled", isPresented: $showPermissionAlert) {
             Button("Open Settings") { openAppSettings() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Enable notifications for Alfie Track in Settings to get reminders.")
+        }
+        .alert("Start tracking \(module.displayName)?", isPresented: $showTrackingConfirmation) {
+            Button("Yes") {
+                isModuleTracked.wrappedValue = true
+                enableReminder()
+            }
+            Button("No", role: .cancel) {}
+        } message: {
+            Text("You'll need to track \(module.displayName) to get reminders for it.")
         }
     }
 
@@ -400,11 +385,20 @@ private struct ReminderRow: View {
             return
         }
 
+        guard isModuleTracked.wrappedValue else {
+            showTrackingConfirmation = true
+            return
+        }
+
+        enableReminder()
+    }
+
+    private func enableReminder() {
         Task {
             let granted = await notificationManager.requestAuthorizationIfNeeded()
             if granted {
                 isEnabled = true
-                notificationManager.scheduleReminder(for: module, atSecondsFromMidnight: timeSeconds)
+                notificationManager.scheduleReminder(for: module)
             } else {
                 isEnabled = false
                 showPermissionAlert = true

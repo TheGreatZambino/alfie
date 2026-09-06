@@ -25,12 +25,32 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// Default daily reminder time, in seconds from midnight, before the user customizes it.
-    var defaultReminderSeconds: Int {
+    /// The daily reminder notification(s) for this module. Finance and Workouts fire once a day;
+    /// Nutrition fires three times to nudge water intake throughout the day.
+    var reminderSlots: [ReminderSlot] {
         switch self {
-        case .finance: return 9 * 3600
-        case .workouts: return 18 * 3600
-        case .nutrition: return 9 * 3600
+        case .finance:
+            return [
+                ReminderSlot(
+                    secondsFromMidnight: 18 * 3600,
+                    title: "Log today's spending",
+                    body: "Keep your budget up to date — add any purchases from today."
+                )
+            ]
+        case .workouts:
+            return [
+                ReminderSlot(
+                    secondsFromMidnight: 6 * 3600,
+                    title: "Rise and shine",
+                    body: "Let's start the day with a workout!"
+                )
+            ]
+        case .nutrition:
+            return [
+                ReminderSlot(secondsFromMidnight: 10 * 3600, title: "Stay hydrated", body: "Log your water intake and remember to drink up today."),
+                ReminderSlot(secondsFromMidnight: 14 * 3600, title: "Stay hydrated", body: "How's your water intake looking? Log it and keep drinking."),
+                ReminderSlot(secondsFromMidnight: 18 * 3600, title: "Stay hydrated", body: "Log today's water intake — and don't forget to drink more.")
+            ]
         }
     }
 

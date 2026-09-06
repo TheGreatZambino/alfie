@@ -82,7 +82,7 @@ struct OnboardingView: View {
                         stepView(
                             eyebrow: stepEyebrow,
                             headline: "When's your next payday?",
-                            body: "We'll count down to it and reset your period balance when it arrives."
+                            body: "I'll count down to it and reset your period balance when it arrives."
                         ) {
                             VStack {
                                 DatePicker("Next pay date", selection: $nextPayDate, displayedComponents: .date)
@@ -189,10 +189,9 @@ struct OnboardingView: View {
 
     private var amountInputCard: some View {
         CurrencyTextField(placeholder: "0", text: $amountText)
-            .font(.system(size: 44, weight: .bold, design: .rounded))
+            .font(.system(size: 34, weight: .bold, design: .rounded))
             .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity)
-            .padding(24)
             .cardStyle()
     }
 

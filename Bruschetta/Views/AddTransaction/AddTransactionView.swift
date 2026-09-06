@@ -10,10 +10,12 @@ struct AddTransactionView: View {
 
     var remaining: Double?
     var editingTransaction: Transaction?
+    var onSave: (() -> Void)?
 
-    init(remaining: Double? = nil, editingTransaction: Transaction? = nil) {
+    init(remaining: Double? = nil, editingTransaction: Transaction? = nil, onSave: (() -> Void)? = nil) {
         self.remaining = remaining
         self.editingTransaction = editingTransaction
+        self.onSave = onSave
     }
 
     @State private var amountText: String = ""
@@ -320,6 +322,7 @@ struct AddTransactionView: View {
         }
 
         try? modelContext.save()
+        onSave?()
         dismiss()
     }
 }

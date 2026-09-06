@@ -42,30 +42,34 @@ final class NotificationManager: NSObject, ObservableObject {
         }
     }
 
-    private func identifier(for module: TrackedModule) -> String {
-        "reminder.\(module.rawValue).daily"
+    private func identifier(for module: TrackedModule, slotIndex: Int) -> String {
+        "reminder.\(module.rawValue).\(slotIndex)"
     }
 
-    func scheduleReminder(for module: TrackedModule, atSecondsFromMidnight seconds: Int) {
-        let content = UNMutableNotificationContent()
-        content.title = reminderTitle(for: module)
-        content.body = reminderBody(for: module)
-        content.sound = .default
+    /// Schedules every reminder slot defined for the module, replacing whatever was previously
+    /// scheduled for it.
+    func scheduleReminder(for module: TrackedModule) {
+        cancelReminder(for: module)
 
-        var components = DateComponents()
-        components.hour = seconds / 3600
-        components.minute = (seconds % 3600) / 60
+        for (index, slot) in module.reminderSlots.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = slot.title
+            content.body = slot.body
+            content.sound = .default
 
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        let request = UNNotificationRequest(identifier: identifier(for: module), content: content, trigger: trigger)
+            var components = DateComponents()
+            components.hour = slot.secondsFromMidnight / 3600
+            components.minute = (slot.secondsFromMidnight % 3600) / 60
 
-        let id = identifier(for: module)
-        center.removePendingNotificationRequests(withIdentifiers: [id])
-        center.add(request)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            let request = UNNotificationRequest(identifier: identifier(for: module, slotIndex: index), content: content, trigger: trigger)
+            center.add(request)
+        }
     }
 
     func cancelReminder(for module: TrackedModule) {
-        center.removePendingNotificationRequests(withIdentifiers: [identifier(for: module)])
+        let ids = module.reminderSlots.indices.map { identifier(for: module, slotIndex: $0) }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
     /// Re-arms any reminders the user has enabled. Call on launch so a reinstall or an OS-level
@@ -76,30 +80,19 @@ final class NotificationManager: NSObject, ObservableObject {
 
         for module in TrackedModule.allCases {
             guard UserDefaults.standard.bool(forKey: ReminderPreferenceKeys.enabled(for: module)) else { continue }
-            let seconds = UserDefaults.standard.object(forKey: ReminderPreferenceKeys.timeSeconds(for: module)) as? Int
-                ?? module.defaultReminderSeconds
-            scheduleReminder(for: module, atSecondsFromMidnight: seconds)
-        }
-    }
-
-    private func reminderTitle(for module: TrackedModule) -> String {
-        switch module {
-        case .finance: return "Log today's spending"
-        case .workouts: return "Time to move"
-        case .nutrition: return "Log your meals"
-        }
-    }
-
-    private func reminderBody(for module: TrackedModule) -> String {
-        switch module {
-        case .finance: return "Keep your budget up to date — add any transactions from today."
-        case .workouts: return "Don't forget to log today's workout in Alfie Track."
-        case .nutrition: return "Add what you've eaten today to stay on top of your goals."
+            scheduleReminder(for: module)
         }
     }
 }
 
+/// One notification fired for a module's reminder — a module can have several (e.g. Nutrition's
+/// three water check-ins throughout the day).
+struct ReminderSlot {
+    let secondsFromMidnight: Int
+    let title: String
+    let body: String
+}
+
 enum ReminderPreferenceKeys {
     static func enabled(for module: TrackedModule) -> String { "reminder.\(module.rawValue).enabled" }
-    static func timeSeconds(for module: TrackedModule) -> String { "reminder.\(module.rawValue).timeSeconds" }
 }

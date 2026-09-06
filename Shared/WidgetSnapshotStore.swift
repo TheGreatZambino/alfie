@@ -25,11 +25,17 @@ struct NutritionSnapshot: Codable, Equatable {
     let calorieGoal: Double
 }
 
+struct WaterSnapshot: Codable, Equatable {
+    let ouncesToday: Double
+    let goalOunces: Double
+}
+
 struct WidgetWorkoutSnapshot: Codable, Equatable {
     var strength: StrengthWorkoutSnapshot?
     var cardio: CardioWorkoutSnapshot?
     var finance: FinanceSnapshot?
     var nutrition: NutritionSnapshot?
+    var water: WaterSnapshot?
 }
 
 /// Bridges today's workout/finance/nutrition summary from the main app (SwiftData + HealthKit)

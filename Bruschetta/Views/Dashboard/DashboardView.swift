@@ -10,6 +10,8 @@ struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showAddTransaction = false
     @State private var showSettings = false
+    @State private var didAddTransaction = false
+    @State private var navigateToTransactions = false
 
     private var income: Income? { incomes.first }
 
@@ -56,11 +58,18 @@ struct DashboardView: View {
             .background(Color.paper)
             .toolbar(.hidden, for: .navigationBar)
             .tint(.money)
-            .sheet(isPresented: $showAddTransaction) {
-                AddTransactionView(remaining: viewModel.remaining)
+            .sheet(isPresented: $showAddTransaction, onDismiss: {
+                guard didAddTransaction else { return }
+                didAddTransaction = false
+                navigateToTransactions = true
+            }) {
+                AddTransactionView(remaining: viewModel.remaining, onSave: { didAddTransaction = true })
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .navigationDestination(isPresented: $navigateToTransactions) {
+                TransactionListView()
             }
             .refreshable {
                 refresh()

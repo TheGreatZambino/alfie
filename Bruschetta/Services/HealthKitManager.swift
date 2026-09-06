@@ -11,6 +11,17 @@ struct CardioWorkout: Identifiable, Equatable {
     let activeCalories: Double?
     let sourceName: String
 
+    var statsSummary: String? {
+        var parts: [String] = []
+        if let distance = distanceMiles, distance > 0.05 {
+            parts.append(String(format: "%.1f mi", distance))
+        }
+        if let calories = activeCalories, calories > 0 {
+            parts.append("\(Int(calories)) cal")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
     init(workout: HKWorkout) {
         self.id = workout.uuid
         self.activityType = workout.workoutActivityType
