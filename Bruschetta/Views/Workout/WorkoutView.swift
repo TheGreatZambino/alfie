@@ -7,6 +7,7 @@ struct WorkoutView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @Query private var workoutGoals: [WorkoutGoals]
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var health = HealthKitManager.shared
     @State private var showNewTemplate = false
@@ -23,20 +24,18 @@ struct WorkoutView: View {
                 VStack(spacing: 14) {
                     header
 
-                    StartCard(template: mostRecentTemplate, hasAnyTemplate: !templates.isEmpty, lastDoneDate: mostRecentTemplate != nil ? sessions.first?.date : nil) {
-                        if let mostRecentTemplate {
-                            activePlan = .template(mostRecentTemplate)
-                        } else {
-                            showStartWorkoutPicker = true
-                        }
+                    StartCard {
+                        showStartWorkoutPicker = true
                     }
 
                     StatTilesRow(sessions: sessionsThisWeek, goal: workoutGoals.first?.weeklyStrengthGoal ?? 3, cardioMinutes: cardioMinutesThisWeek, steps: todaySteps)
 
-                    TemplatesCard(templates: Array(templates.prefix(3)), mostRecentTemplateID: mostRecentTemplate?.id) { template in
+                    TemplatesCard(templates: Array(sortedTemplates.prefix(3))) { template in
                         activePlan = .template(template)
                     } onEdit: { template in
                         editingTemplate = template
+                    } onDelete: { template in
+                        deleteTemplate(template)
                     } onNew: {
                         showNewTemplate = true
                     }
@@ -61,7 +60,7 @@ struct WorkoutView: View {
                 SettingsView()
             }
             .sheet(isPresented: $showStartWorkoutPicker) {
-                StartWorkoutPickerView(templates: templates) { template in
+                StartWorkoutPickerView(templates: sortedTemplates, hasHistory: !sessions.isEmpty) { template in
                     showStartWorkoutPicker = false
                     activePlan = .template(template)
                 } onEdit: { template in
@@ -222,9 +221,13 @@ struct WorkoutView: View {
         return Int(total / 60)
     }
 
-    private var mostRecentTemplate: WorkoutTemplate? {
-        guard let name = sessions.first?.templateName else { return templates.first }
-        return templates.first { $0.name == name } ?? templates.first
+    private var sortedTemplates: [WorkoutTemplate] {
+        templates.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private func deleteTemplate(_ template: WorkoutTemplate) {
+        modelContext.delete(template)
+        try? modelContext.save()
     }
 
     private var mergedRecentActivity: [RecentActivityItem] {
@@ -238,19 +241,16 @@ struct WorkoutView: View {
 // MARK: - Card 1: Start
 
 private struct StartCard: View {
-    let template: WorkoutTemplate?
-    let hasAnyTemplate: Bool
-    let lastDoneDate: Date?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text("Start Strength Workout")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(.white)
-                    Text(subtitle)
+                    Text("Start fresh, repeat a past workout, or pick a template.")
                         .font(.system(size: 14))
                         .foregroundStyle(.white.opacity(0.82))
                 }
@@ -269,31 +269,6 @@ private struct StartCard: View {
             .heroCardStyle(pillar: .trainingFill)
         }
         .buttonStyle(.plain)
-    }
-
-    private var title: String {
-        guard let template else { return "Start a workout" }
-        return "Start \(template.name)"
-    }
-
-    private var subtitle: String {
-        guard let template else {
-            return hasAnyTemplate ? "Pick a template to begin." : "Build your first template to begin."
-        }
-        let sets = template.sortedEntries.reduce(0) { $0 + $1.sortedSetEntries.count }
-        let base = "\(template.sortedEntries.count) exercises · \(sets) sets"
-        guard let lastDoneDate else { return base }
-        return "\(base) · last done \(lastDoneText(lastDoneDate))"
-    }
-
-    private func lastDoneText(_ date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "today" }
-        if calendar.isDateInYesterday(date) { return "yesterday" }
-        if let days = calendar.dateComponents([.day], from: date, to: Date()).day, days < 7 {
-            return date.formatted(.dateTime.weekday(.wide))
-        }
-        return date.formatted(.dateTime.month(.abbreviated).day())
     }
 }
 
@@ -348,9 +323,9 @@ private struct StatTile: View {
 
 private struct TemplatesCard: View {
     let templates: [WorkoutTemplate]
-    let mostRecentTemplateID: PersistentIdentifier?
     let onStart: (WorkoutTemplate) -> Void
     let onEdit: (WorkoutTemplate) -> Void
+    let onDelete: (WorkoutTemplate) -> Void
     let onNew: () -> Void
 
     var body: some View {
@@ -371,10 +346,12 @@ private struct TemplatesCard: View {
             } else {
                 HStack(spacing: 10) {
                     ForEach(templates) { template in
-                        TemplateTile(template: template, isActive: template.id == mostRecentTemplateID) {
+                        TemplateTile(template: template) {
                             onStart(template)
-                        } onLongPress: {
+                        } onEdit: {
                             onEdit(template)
+                        } onDelete: {
+                            onDelete(template)
                         }
                     }
                 }
@@ -386,38 +363,56 @@ private struct TemplatesCard: View {
 
 private struct TemplateTile: View {
     let template: WorkoutTemplate
-    let isActive: Bool
-    let onTap: () -> Void
-    let onLongPress: () -> Void
+    let onStart: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    @State private var showActions = false
+    @State private var showDeleteConfirm = false
 
     private var totalSets: Int {
         template.sortedEntries.reduce(0) { $0 + $1.sortedSetEntries.count }
     }
 
+    private var movementCount: Int {
+        template.sortedEntries.count
+    }
+
     var body: some View {
-        Button(action: onTap) {
+        Button {
+            showActions = true
+        } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: template.sortedEntries.first?.exercise?.muscleGroup.icon ?? "dumbbell.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isActive ? Color.training : Color.inkTertiary)
                 Text(template.name)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.ink)
                     .lineLimit(1)
-                Text("\(template.sortedEntries.count) · \(totalSets) sets")
+                Text("\(movementCount) movement\(movementCount == 1 ? "" : "s") · \(totalSets) sets")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.inkTertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(isActive ? Color.training.opacity(0.05) : Color.clear))
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.training.opacity(0.05)))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(isActive ? Color.training.opacity(0.25) : Color.ink.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(Color.training.opacity(0.25), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
-        .onLongPressGesture(perform: onLongPress)
+        .confirmationDialog(template.name, isPresented: $showActions, titleVisibility: .visible) {
+            Button("Start Workout", action: onStart)
+            Button("Edit Template", action: onEdit)
+            Button("Delete Template", role: .destructive) {
+                showDeleteConfirm = true
+            }
+        }
+        .confirmationDialog("Delete this template?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete Template", role: .destructive, action: onDelete)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can't be undone.")
+        }
     }
 }
 
@@ -547,6 +542,7 @@ private struct StartWorkoutPickerView: View {
     @Environment(\.dismiss) private var dismiss
 
     let templates: [WorkoutTemplate]
+    let hasHistory: Bool
     let onStart: (WorkoutTemplate) -> Void
     let onEdit: (WorkoutTemplate) -> Void
     let onCreateNew: () -> Void
@@ -561,7 +557,7 @@ private struct StartWorkoutPickerView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 12) {
-                            QuickStartRow(onStartFresh: onStartFresh, onRepeatWorkout: onRepeatWorkout)
+                            QuickStartRow(hasHistory: hasHistory, onStartFresh: onStartFresh, onRepeatWorkout: onRepeatWorkout)
 
                             ForEach(templates) { template in
                                 TemplateCard(template: template) {
@@ -623,7 +619,7 @@ private struct StartWorkoutPickerView: View {
             .padding(.horizontal, 40)
             .padding(.top, 4)
 
-            QuickStartRow(onStartFresh: onStartFresh, onRepeatWorkout: onRepeatWorkout)
+            QuickStartRow(hasHistory: hasHistory, onStartFresh: onStartFresh, onRepeatWorkout: onRepeatWorkout)
                 .padding(.horizontal, 40)
 
             Spacer()
@@ -633,13 +629,16 @@ private struct StartWorkoutPickerView: View {
 }
 
 private struct QuickStartRow: View {
+    let hasHistory: Bool
     let onStartFresh: () -> Void
     let onRepeatWorkout: () -> Void
 
     var body: some View {
         VStack(spacing: 10) {
             quickStartButton(title: "Start Fresh", icon: "plus", action: onStartFresh)
-            quickStartButton(title: "Repeat a Workout", icon: "arrow.counterclockwise", action: onRepeatWorkout)
+            if hasHistory {
+                quickStartButton(title: "Repeat a Workout", icon: "arrow.counterclockwise", action: onRepeatWorkout)
+            }
         }
     }
 
