@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var showTour = false
     @State private var showPaywall = false
     @State private var showManageSubscriptions = false
+    @State private var showHealthGuidance = false
 
     @Query private var incomes: [Income]
     @Query private var bills: [Bill]
@@ -55,7 +56,7 @@ struct SettingsView: View {
                             settingsRow(icon: "fork.knife", tint: .food, title: "Nutrition goals", subtitle: nutritionGoalsSubtitle)
                         }
                         Divider().overlay(Color.hairline).padding(.leading, 60)
-                        Button { openHealthSettings() } label: { healthStatusRow }
+                        Button { handleHealthTap() } label: { healthStatusRow }
                     }
 
                     settingsGroup(label: "TRACK") {
@@ -178,6 +179,12 @@ struct SettingsView: View {
             RemoveAdsPaywallView()
         }
         .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
+        .alert("Apple Health", isPresented: $showHealthGuidance) {
+            Button("Open Health App") { openHealthApp() }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(health.errorMessage ?? "To grant or review access, open the Health app, tap your profile icon, then Apps, and find Alfie Track.")
+        }
     }
 
     // MARK: - Tracked modules
@@ -247,9 +254,28 @@ struct SettingsView: View {
         .contentShape(Rectangle())
     }
 
+    private func handleHealthTap() {
+        if health.isAuthorized {
+            openHealthSettings()
+        } else {
+            Task {
+                await health.requestAuthorizationAndFetch()
+                showHealthGuidance = true
+            }
+        }
+    }
+
     private func openHealthSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
+    }
+
+    private func openHealthApp() {
+        if let url = URL(string: "x-apple-health://"), UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else {
+            openHealthSettings()
+        }
     }
 
     private func settingsRow(icon: String, tint: Color, title: String, subtitle: String?, showChevron: Bool = true) -> some View {
