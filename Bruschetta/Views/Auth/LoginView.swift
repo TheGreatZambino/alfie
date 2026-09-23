@@ -33,6 +33,7 @@ struct LoginView: View {
                 authManager.handleAppleSignIn(result)
             }
             .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .id(colorScheme)
             .frame(height: 50)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(

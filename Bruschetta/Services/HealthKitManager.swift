@@ -22,7 +22,7 @@ struct CardioWorkout: Identifiable, Equatable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    init(workout: HKWorkout, activeCalories: Double?) {
+    nonisolated init(workout: HKWorkout, activeCalories: Double?) {
         self.id = workout.uuid
         self.activityType = workout.workoutActivityType
         self.startDate = workout.startDate
@@ -52,8 +52,8 @@ private extension HKWorkout {
     /// way to fall back to that data without a compiler deprecation warning,
     /// since there is no statistics-based replacement for a workout that
     /// never had per-sample data to begin with.
-    var legacyTotalDistance: HKQuantity? { value(forKey: "totalDistance") as? HKQuantity }
-    var legacyTotalEnergyBurned: HKQuantity? { value(forKey: "totalEnergyBurned") as? HKQuantity }
+    nonisolated var legacyTotalDistance: HKQuantity? { value(forKey: "totalDistance") as? HKQuantity }
+    nonisolated var legacyTotalEnergyBurned: HKQuantity? { value(forKey: "totalEnergyBurned") as? HKQuantity }
 }
 
 extension HKWorkoutActivityType {
