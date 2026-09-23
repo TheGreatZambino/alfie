@@ -1,6 +1,9 @@
 import AuthenticationServices
 import SwiftUI
 
+private let termsOfUseURL = URL(string: "https://thegreatzambino.github.io/alfie/legal/terms.html")!
+private let privacyPolicyURL = URL(string: "https://thegreatzambino.github.io/alfie/legal/privacy.html")!
+
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.colorScheme) private var colorScheme
@@ -10,12 +13,13 @@ struct LoginView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                Image(systemName: "fork.knife.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(Color.money)
+                Image("AppLogo")
+                    .resizable()
+                    .frame(width: 88, height: 88)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Text("Alfie Track")
                     .font(.largeTitle.bold())
-                Text("Track your budget and workouts in one place.")
+                Text("Track your budget, nutrition, and workouts in one place.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -37,7 +41,7 @@ struct LoginView: View {
             )
             .padding(.horizontal, 24)
 
-            Text("By continuing, you agree to my Terms and Privacy Policy.")
+            legalText
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
@@ -46,6 +50,11 @@ struct LoginView: View {
             Spacer(minLength: 20)
         }
         .padding()
+    }
+
+    private var legalText: Text {
+        let markdown = "By continuing, you agree to my [Terms](\(termsOfUseURL.absoluteString)) and [Privacy Policy](\(privacyPolicyURL.absoluteString))."
+        return Text((try? AttributedString(markdown: markdown)) ?? AttributedString(markdown))
     }
 }
 

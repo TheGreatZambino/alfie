@@ -282,7 +282,7 @@ private struct StatTilesRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            StatTile(label: "Sessions", value: "\(sessions)", unit: goal > 0 ? "/ \(goal)" : nil)
+            StatTile(label: "Strength sessions", value: "\(sessions)", unit: goal > 0 ? "/ \(goal)" : nil)
             StatTile(label: "Cardio", value: "\(cardioMinutes)", unit: "min")
             StatTile(label: "Steps today", value: stepsValue, unit: nil)
         }
