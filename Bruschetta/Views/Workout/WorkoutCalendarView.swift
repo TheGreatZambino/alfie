@@ -13,18 +13,20 @@ struct WorkoutCalendarView: View {
     private let calendar = Calendar.current
 
     var body: some View {
-        VStack(spacing: 20) {
-            monthHeader
+        ScrollView {
+            VStack(spacing: 20) {
+                monthHeader
 
-            weekdayHeader
+                weekdayHeader
 
-            calendarGrid
+                calendarGrid
 
-            legend
+                legend
 
-            Spacer()
+                monthlySummary
+            }
+            .padding()
         }
-        .padding()
         .navigationTitle("Workout Calendar")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: displayedMonth) {
@@ -101,6 +103,57 @@ struct WorkoutCalendarView: View {
             symbol()
             Text(label())
         }
+    }
+
+    private var monthSessions: [WorkoutSession] {
+        sessions.filter { calendar.isDate($0.date, equalTo: displayedMonth, toGranularity: .month) }
+    }
+
+    private var monthCardioWorkouts: [CardioWorkout] {
+        cardioWorkouts.filter { calendar.isDate($0.startDate, equalTo: displayedMonth, toGranularity: .month) }
+    }
+
+    private var strengthMinutes: Int {
+        monthSessions.reduce(0) { $0 + $1.durationMinutes }
+    }
+
+    private var cardioMinutes: Int {
+        Int(monthCardioWorkouts.reduce(0) { $0 + $1.duration } / 60)
+    }
+
+    private var cardioMiles: Double {
+        monthCardioWorkouts.reduce(0) { $0 + ($1.distanceMiles ?? 0) }
+    }
+
+    private var prCount: Int {
+        monthSessions.reduce(0) { $0 + $1.prCount }
+    }
+
+    private var monthlySummary: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("MONTHLY SUMMARY")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 10) {
+                SummaryTile(label: "Total workouts", value: "\(monthSessions.count + monthCardioWorkouts.count)")
+                SummaryTile(label: "Strength", value: "\(monthSessions.count)")
+                SummaryTile(label: "Cardio", value: "\(monthCardioWorkouts.count)")
+            }
+
+            HStack(spacing: 10) {
+                SummaryTile(label: "Strength min", value: "\(strengthMinutes)")
+                SummaryTile(label: "Cardio min", value: "\(cardioMinutes)")
+                SummaryTile(label: "Cardio miles", value: String(format: "%.1f", cardioMiles))
+            }
+
+            if prCount > 0 {
+                HStack(spacing: 10) {
+                    SummaryTile(label: "PRs hit", value: "\(prCount)", accent: .workoutGold)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func isToday(_ day: Int) -> Bool {
@@ -186,6 +239,22 @@ private struct DayCell: View {
     }
 }
 
-private extension Color {
-    static let workoutGold = Color(hex: "#D4AF37")
+private struct SummaryTile: View {
+    let label: String
+    let value: String
+    var accent: Color?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(accent ?? Color.primary)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.systemGray6)))
+    }
 }

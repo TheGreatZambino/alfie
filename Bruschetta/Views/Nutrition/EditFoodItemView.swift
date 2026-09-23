@@ -107,9 +107,20 @@ struct EditFoodItemView: View {
 
     private func save() {
         foodItem.name = name.trimmingCharacters(in: .whitespaces)
+        let oldBaseOption = foodItem.servingOptions.first
         foodItem.servingDescription = servingDescription
         let servingSizeGrams = Double(servingSizeGramsText) ?? foodItem.servingSizeGrams
         foodItem.servingSizeGrams = servingSizeGrams > 0 ? servingSizeGrams : 100
+        // Keep the base serving option (used for weight/serving-count conversions) in sync
+        // with the manually edited description/size; any other alternate options (e.g. a
+        // flat "100 g") stay untouched since they remain valid regardless.
+        var options = foodItem.servingOptions
+        if let oldBaseOption, let index = options.firstIndex(where: { $0.id == oldBaseOption.id }) {
+            options[index] = ServingOption(description: foodItem.servingDescription, grams: foodItem.servingSizeGrams)
+        } else {
+            options = [ServingOption(description: foodItem.servingDescription, grams: foodItem.servingSizeGrams)]
+        }
+        foodItem.servingOptions = options
         foodItem.calories = Double(caloriesText) ?? 0
         foodItem.proteinGrams = Double(proteinText) ?? 0
         foodItem.carbsGrams = Double(carbsText) ?? 0

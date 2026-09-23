@@ -22,12 +22,13 @@ struct CardioWorkout: Identifiable, Equatable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    init(workout: HKWorkout) {
+    init(workout: HKWorkout, activeCalories: Double?) {
         self.id = workout.uuid
         self.activityType = workout.workoutActivityType
         self.startDate = workout.startDate
         self.duration = workout.duration
         self.sourceName = workout.sourceRevision.source.name
+        self.activeCalories = activeCalories
 
         if let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning),
            let sum = workout.statistics(for: distanceType)?.sumQuantity() {
@@ -39,15 +40,6 @@ struct CardioWorkout: Identifiable, Equatable {
             self.distanceMiles = totalDistance.doubleValue(for: .mile())
         } else {
             self.distanceMiles = nil
-        }
-
-        if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-           let sum = workout.statistics(for: energyType)?.sumQuantity() {
-            self.activeCalories = sum.doubleValue(for: .kilocalorie())
-        } else if let totalEnergyBurned = workout.legacyTotalEnergyBurned {
-            self.activeCalories = totalEnergyBurned.doubleValue(for: .kilocalorie())
-        } else {
-            self.activeCalories = nil
         }
     }
 }
@@ -185,6 +177,51 @@ final class HealthKitManager: ObservableObject {
             }
             store.execute(query)
         }
-        return samples.compactMap { $0 as? HKWorkout }.map(CardioWorkout.init)
+        let workouts = samples.compactMap { $0 as? HKWorkout }
+        return await withTaskGroup(of: (Int, CardioWorkout).self) { group in
+            for (index, workout) in workouts.enumerated() {
+                group.addTask {
+                    let calories = await self.activeCalories(for: workout)
+                    return (index, CardioWorkout(workout: workout, activeCalories: calories))
+                }
+            }
+            var results = [CardioWorkout?](repeating: nil, count: workouts.count)
+            for await (index, cardioWorkout) in group {
+                results[index] = cardioWorkout
+            }
+            return results.compactMap { $0 }
+        }
+    }
+
+    /// Determines active-calorie burn for a workout, preferring the number reported by
+    /// whichever app/device synced the workout (e.g. Garmin Connect, Strava, Fitbit) over
+    /// Apple Health's cross-source aggregate, since sources like Garmin often write a
+    /// single authoritative calorie total that differs from what Health computes when
+    /// merging samples from multiple sources (e.g. an Apple Watch also worn that day).
+    private func activeCalories(for workout: HKWorkout) async -> Double? {
+        guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
+            return workout.legacyTotalEnergyBurned?.doubleValue(for: .kilocalorie())
+        }
+        if let sourceCalories = await sourceMatchedActiveEnergy(energyType: energyType, workout: workout),
+           sourceCalories > 0 {
+            return sourceCalories
+        }
+        if let sum = workout.statistics(for: energyType)?.sumQuantity() {
+            return sum.doubleValue(for: .kilocalorie())
+        }
+        return workout.legacyTotalEnergyBurned?.doubleValue(for: .kilocalorie())
+    }
+
+    private func sourceMatchedActiveEnergy(energyType: HKQuantityType, workout: HKWorkout) async -> Double? {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForObjects(from: workout),
+            HKQuery.predicateForObjects(from: workout.sourceRevision.source)
+        ])
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: energyType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, statistics, _ in
+                continuation.resume(returning: statistics?.sumQuantity()?.doubleValue(for: .kilocalorie()))
+            }
+            store.execute(query)
+        }
     }
 }

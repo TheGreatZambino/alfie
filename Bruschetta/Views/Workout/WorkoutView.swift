@@ -407,6 +407,7 @@ private struct TemplateTile: View {
                 showDeleteConfirm = true
             }
         }
+        .tint(Color.ink)
         .confirmationDialog("Delete this template?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete Template", role: .destructive, action: onDelete)
             Button("Cancel", role: .cancel) {}
@@ -487,7 +488,8 @@ private struct RecentRow: View {
                     title: session.name,
                     detail: "\(relativeDate(session.date)) · \(session.durationMinutes) min",
                     value: "\(Int(session.totalVolume))",
-                    unit: "lb moved"
+                    unit: "lb moved",
+                    showsPR: session.prCount > 0
                 )
             }
             .buttonStyle(.plain)
@@ -502,14 +504,21 @@ private struct RecentRow: View {
         }
     }
 
-    private func row(icon: String, title: String, detail: String, value: String, unit: String) -> some View {
+    private func row(icon: String, title: String, detail: String, value: String, unit: String, showsPR: Bool = false) -> some View {
         HStack(spacing: 12) {
             IconBadge(systemName: icon, color: .training, size: 38, shape: .roundedSquare(radius: 13))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.rowTitle)
-                    .foregroundStyle(Color.ink)
+                HStack(spacing: 5) {
+                    Text(title)
+                        .font(.rowTitle)
+                        .foregroundStyle(Color.ink)
+                    if showsPR {
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.workoutGold)
+                    }
+                }
                 Text(detail)
                     .font(.rowDetail)
                     .foregroundStyle(Color.inkTertiary)

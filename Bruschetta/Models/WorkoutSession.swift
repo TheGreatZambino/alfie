@@ -29,6 +29,10 @@ final class WorkoutSession {
     var exerciseCount: Int {
         Set((sets ?? []).compactMap { $0.exercise?.name }).count
     }
+
+    var prCount: Int {
+        (sets ?? []).filter(\.isPR).count
+    }
 }
 
 @Model
@@ -37,14 +41,24 @@ final class LoggedSet {
     var setNumber: Int = 1
     var weight: Double = 0
     var reps: Int = 0
+    var durationSeconds: Int = 0
+    var trackingTypeRaw: String = TrackingType.reps.rawValue
     var isWarmup: Bool = false
+    var isPR: Bool = false
     var session: WorkoutSession?
 
-    init(exercise: Exercise?, setNumber: Int = 1, weight: Double = 0, reps: Int = 0, isWarmup: Bool = false) {
+    init(exercise: Exercise?, setNumber: Int = 1, weight: Double = 0, reps: Int = 0, durationSeconds: Int = 0, trackingType: TrackingType = .reps, isWarmup: Bool = false) {
         self.exercise = exercise
         self.setNumber = setNumber
         self.weight = weight
         self.reps = reps
+        self.durationSeconds = durationSeconds
+        self.trackingTypeRaw = trackingType.rawValue
         self.isWarmup = isWarmup
+    }
+
+    var trackingType: TrackingType {
+        get { TrackingType(rawValue: trackingTypeRaw) ?? .reps }
+        set { trackingTypeRaw = newValue.rawValue }
     }
 }

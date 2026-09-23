@@ -3,6 +3,7 @@ import SwiftData
 
 struct IncomeSettingsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Query private var incomes: [Income]
 
     @State private var amountText: String = ""
@@ -59,5 +60,6 @@ struct IncomeSettingsView: View {
             modelContext.insert(income)
         }
         try? modelContext.save()
+        dismiss()
     }
 }

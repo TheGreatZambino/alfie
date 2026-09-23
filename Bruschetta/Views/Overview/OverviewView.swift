@@ -163,7 +163,7 @@ struct OverviewView: View {
     /// (which can't query SwiftData directly) can show them alongside workouts.
     private func refreshWidgetSnapshot() {
         let periodEnd: Date? = income.map {
-            PayPeriodCalculator.currentPayPeriod(nextPayDate: $0.nextPayDate, cadence: $0.cadence).end
+            PayPeriodCalculator.currentPayPeriod(nextPayDate: $0.nextPayDate, cadence: $0.cadence).end.addingTimeInterval(1)
         }
         let calendar = Calendar.current
         let caloriesToday = nutritionEntries
@@ -314,7 +314,7 @@ private struct PillarRowsCard: View {
                     heroValue: viewModel.remainingThisPeriod.formatted(.currency(code: "USD").precision(.fractionLength(0))),
                     supporting: "left · \(daysToPaydayText)"
                 ) {
-                    SegmentedBar(segments: moneySegments)
+                    SegmentedBar(segments: [.init(fraction: moneyFraction, color: .money)], trackColor: .moneyTint)
                 } action: {
                     selectedTab = .finances
                 }
@@ -371,18 +371,10 @@ private struct PillarRowsCard: View {
         return "\(daysToPayday) days to payday"
     }
 
-    private var moneySegments: [SegmentedBar.Segment] {
+    private var moneyFraction: Double {
         let total = max(viewModel.incomeThisPeriod, 1)
-        let billsFraction = viewModel.billsAllocationThisPeriod / total
-        let savingsFraction = viewModel.savingsAllocationThisPeriod / total
-        let spentFraction = viewModel.spendingThisPeriod / total
-        let remainingFraction = max(1 - billsFraction - savingsFraction - spentFraction, 0)
-        return [
-            .init(fraction: billsFraction, color: .training),
-            .init(fraction: savingsFraction, color: .food),
-            .init(fraction: spentFraction, color: Color.ink.opacity(0.22)),
-            .init(fraction: remainingFraction, color: .money),
-        ]
+        let committed = viewModel.billsAllocationThisPeriod + viewModel.savingsAllocationThisPeriod + viewModel.spendingThisPeriod
+        return min(1, max(committed / total, 0))
     }
 }
 
@@ -468,6 +460,9 @@ private struct WeekTypeRow: View {
                         Image(systemName: icon)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white)
+                    } else if !isFuture {
+                        Text("😴")
+                            .font(.system(size: 12))
                     }
                 }
             )

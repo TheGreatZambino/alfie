@@ -185,9 +185,12 @@ private struct LogFoodDetailView: View {
     @State private var servingsCount: Double = 1
     @State private var weightValue: Double = 100
     @State private var weightUnit: WeightUnit = .grams
+    @State private var selectedServingOption: ServingOption
     @State private var mealType: MealType?
     @State private var date: Date
     @State private var showEditFood = false
+
+    private var servingOptions: [ServingOption] { existingFoodItem?.servingOptions ?? result?.servingOptions ?? [] }
 
     init(result: FoodResult, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, logDate: Date = Date(), onLogged: @escaping () -> Void) {
         self.result = result
@@ -198,6 +201,7 @@ private struct LogFoodDetailView: View {
         _date = State(initialValue: existingEntry?.date ?? logDate)
         _servingsCount = State(initialValue: existingEntry?.quantity ?? 1)
         _weightValue = State(initialValue: result.servingSizeGrams > 0 ? result.servingSizeGrams : 100)
+        _selectedServingOption = State(initialValue: result.servingOptions.first ?? ServingOption(description: result.servingDescription, grams: result.servingSizeGrams))
     }
 
     init(foodItem: FoodItem, defaultMealType: MealType? = nil, existingEntry: NutritionEntry? = nil, logDate: Date = Date(), onLogged: @escaping () -> Void) {
@@ -215,23 +219,31 @@ private struct LogFoodDetailView: View {
             _servingsCount = State(initialValue: 1)
             _weightValue = State(initialValue: grams)
         }
+        _selectedServingOption = State(initialValue: foodItem.servingOptions.first ?? ServingOption(description: foodItem.servingDescription, grams: grams))
     }
 
     private var name: String { existingFoodItem?.name ?? result?.name ?? "" }
-    private var servingDescription: String { existingFoodItem?.servingDescription ?? result?.servingDescription ?? "" }
     private var caloriesPerServing: Double { existingFoodItem?.calories ?? result?.calories ?? 0 }
-    private var servingSizeGrams: Double {
+    /// The serving `calories`/macros are calibrated against — i.e. the food's original,
+    /// stored serving — as distinct from `selectedServingOption`, whichever alternate
+    /// serving (e.g. "100 g") the user is currently entering an amount in.
+    private var baseServingSizeGrams: Double {
         let grams = existingFoodItem?.servingSizeGrams ?? result?.servingSizeGrams ?? 100
         return grams > 0 ? grams : 100
     }
 
-    /// Quantity is expressed as a multiple of the food's base serving. In servings mode
-    /// that's entered directly; in weight mode, converting the entered weight to grams and
-    /// dividing by the serving size gives the same multiplier.
+    private var selectedServingGrams: Double {
+        selectedServingOption.grams > 0 ? selectedServingOption.grams : 100
+    }
+
+    /// Quantity is expressed as a multiple of the food's base serving (the one its
+    /// stored calories/macros are calibrated to). In servings mode, the entered count is
+    /// against whichever `selectedServingOption` is picked, so it's converted to grams and
+    /// then to base-serving multiples; weight mode does the same starting from a raw weight.
     private var quantity: Double {
         switch amountMode {
-        case .servings: return servingsCount
-        case .weight: return (weightValue * weightUnit.gramsPerUnit) / servingSizeGrams
+        case .servings: return (servingsCount * selectedServingGrams) / baseServingSizeGrams
+        case .weight: return (weightValue * weightUnit.gramsPerUnit) / baseServingSizeGrams
         }
     }
 
@@ -241,7 +253,7 @@ private struct LogFoodDetailView: View {
                 Section {
                     Text(name)
                         .font(.headline)
-                    Text(servingDescription)
+                    Text(selectedServingOption.description)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
@@ -267,18 +279,28 @@ private struct LogFoodDetailView: View {
                     .onChange(of: amountMode) { oldMode, newMode in
                         guard oldMode != newMode else { return }
                         if newMode == .weight {
-                            weightValue = (servingsCount * servingSizeGrams) / weightUnit.gramsPerUnit
+                            weightValue = (servingsCount * selectedServingGrams) / weightUnit.gramsPerUnit
                         } else {
-                            servingsCount = (weightValue * weightUnit.gramsPerUnit) / servingSizeGrams
+                            servingsCount = (weightValue * weightUnit.gramsPerUnit) / selectedServingGrams
                         }
                     }
 
                     if amountMode == .servings {
+                        if servingOptions.count > 1 {
+                            Picker("Serving", selection: $selectedServingOption) {
+                                ForEach(servingOptions) { option in
+                                    Text(option.description).tag(option)
+                                }
+                            }
+                            .onChange(of: selectedServingOption) { _, _ in
+                                servingsCount = 1
+                            }
+                        }
                         HStack {
                             AutoSelectNumberField(value: $servingsCount, placeholder: "Servings")
                             Stepper("", value: $servingsCount, in: 0.25...50, step: 0.5)
                                 .labelsHidden()
-                            Text(servingsCount == 1 ? "serving" : "servings")
+                            Text(servingsCount == 1 ? selectedServingOption.description : "× \(selectedServingOption.description)")
                                 .foregroundStyle(.secondary)
                         }
                     } else {
@@ -359,7 +381,7 @@ private struct LogFoodDetailView: View {
         } else if let result {
             foodItem = FoodItem(
                 name: result.name, brand: result.brand, barcode: result.barcode, source: result.source, externalId: result.externalId,
-                servingSizeGrams: result.servingSizeGrams, servingDescription: result.servingDescription,
+                servingSizeGrams: result.servingSizeGrams, servingDescription: result.servingDescription, servingOptions: result.servingOptions,
                 calories: result.calories, proteinGrams: result.proteinGrams, carbsGrams: result.carbsGrams, fatGrams: result.fatGrams,
                 sugarGrams: result.sugarGrams, fiberGrams: result.fiberGrams, sodiumMilligrams: result.sodiumMilligrams
             )

@@ -13,8 +13,8 @@ struct WorkoutPlan: Identifiable {
     static func template(_ template: WorkoutTemplate) -> WorkoutPlan {
         let entries: [WorkoutPlanEntry] = template.sortedEntries.compactMap { entry in
             guard let exercise = entry.exercise else { return nil }
-            let sets = entry.sortedSetEntries.map { WorkoutPlanSet(reps: $0.targetReps, weight: $0.targetWeight) }
-            return WorkoutPlanEntry(exercise: exercise, sets: sets.isEmpty ? [WorkoutPlanSet(reps: 10, weight: 0)] : sets)
+            let sets = entry.sortedSetEntries.map { WorkoutPlanSet(reps: $0.targetReps, weight: $0.targetWeight, durationSeconds: $0.targetDurationSeconds) }
+            return WorkoutPlanEntry(exercise: exercise, trackingType: entry.trackingType, sets: sets.isEmpty ? [WorkoutPlanSet(reps: 10, weight: 0)] : sets)
         }
         return WorkoutPlan(name: template.name, templateName: template.name, entries: entries)
     }
@@ -26,16 +26,18 @@ struct WorkoutPlan: Identifiable {
     static func repeating(_ session: WorkoutSession) -> WorkoutPlan {
         var order: [Exercise] = []
         var setsByExercise: [PersistentIdentifier: [WorkoutPlanSet]] = [:]
+        var trackingByExercise: [PersistentIdentifier: TrackingType] = [:]
         for loggedSet in (session.sets ?? []).sorted(by: { $0.setNumber < $1.setNumber }) {
             guard let exercise = loggedSet.exercise else { continue }
             if setsByExercise[exercise.id] == nil {
                 order.append(exercise)
                 setsByExercise[exercise.id] = []
+                trackingByExercise[exercise.id] = loggedSet.trackingType
             }
-            setsByExercise[exercise.id]?.append(WorkoutPlanSet(reps: loggedSet.reps, weight: loggedSet.weight))
+            setsByExercise[exercise.id]?.append(WorkoutPlanSet(reps: loggedSet.reps, weight: loggedSet.weight, durationSeconds: loggedSet.durationSeconds))
         }
         let entries = order.map { exercise in
-            WorkoutPlanEntry(exercise: exercise, sets: setsByExercise[exercise.id] ?? [WorkoutPlanSet(reps: 10, weight: 0)])
+            WorkoutPlanEntry(exercise: exercise, trackingType: trackingByExercise[exercise.id] ?? .reps, sets: setsByExercise[exercise.id] ?? [WorkoutPlanSet(reps: 10, weight: 0)])
         }
         return WorkoutPlan(name: session.name, templateName: nil, entries: entries)
     }
@@ -44,24 +46,28 @@ struct WorkoutPlan: Identifiable {
 struct WorkoutPlanEntry: Identifiable {
     let id = UUID()
     var exercise: Exercise
+    var trackingType: TrackingType = .reps
     var sets: [WorkoutPlanSet]
 }
 
 struct WorkoutPlanSet {
     var reps: Int
     var weight: Double
+    var durationSeconds: Int = 0
 }
 
 private struct LoggedDraftSet: Identifiable {
     let id = UUID()
     var reps: Int
     var weight: Double
+    var durationSeconds: Int = 0
     var isLogged: Bool = false
 }
 
 private struct LoggedDraftEntry: Identifiable {
     let id = UUID()
     var exercise: Exercise
+    var trackingType: TrackingType = .reps
     var sets: [LoggedDraftSet]
 
     var isComplete: Bool { sets.allSatisfy(\.isLogged) }
@@ -84,7 +90,7 @@ struct ActiveWorkoutView: View {
     init(plan: WorkoutPlan) {
         self.plan = plan
         _draftEntries = State(initialValue: plan.entries.map { entry in
-            LoggedDraftEntry(exercise: entry.exercise, sets: entry.sets.map { LoggedDraftSet(reps: $0.reps, weight: $0.weight) })
+            LoggedDraftEntry(exercise: entry.exercise, trackingType: entry.trackingType, sets: entry.sets.map { LoggedDraftSet(reps: $0.reps, weight: $0.weight, durationSeconds: $0.durationSeconds) })
         })
     }
 
@@ -224,15 +230,41 @@ struct ActiveWorkoutView: View {
         modelContext.insert(session)
 
         for entry in draftEntries {
+            let priorBest = personalBest(for: entry.exercise, trackingType: entry.trackingType)
+            var sessionBest = priorBest
+
+            var loggedSets: [LoggedSet] = []
             for (index, draftSet) in entry.sets.enumerated() {
-                let loggedSet = LoggedSet(exercise: entry.exercise, setNumber: index + 1, weight: draftSet.weight, reps: draftSet.reps)
+                let loggedSet = LoggedSet(exercise: entry.exercise, setNumber: index + 1, weight: draftSet.weight, reps: draftSet.reps, durationSeconds: draftSet.durationSeconds, trackingType: entry.trackingType)
                 loggedSet.session = session
                 modelContext.insert(loggedSet)
+                loggedSets.append(loggedSet)
+                sessionBest = max(sessionBest, prValue(for: loggedSet))
+            }
+
+            guard sessionBest > priorBest else { continue }
+            for loggedSet in loggedSets where !loggedSet.isWarmup && prValue(for: loggedSet) == sessionBest {
+                loggedSet.isPR = true
             }
         }
+
         try? modelContext.save()
         AnalyticsService.workoutLogged(.strength)
         dismiss()
+    }
+
+    /// The value used to compare a set against the exercise's personal best: weight for
+    /// rep-tracked sets, duration for time-tracked sets.
+    private func prValue(for loggedSet: LoggedSet) -> Double {
+        loggedSet.trackingType == .time ? Double(loggedSet.durationSeconds) : loggedSet.weight
+    }
+
+    /// The best value ever logged for this exercise (excluding warmups), before this session.
+    private func personalBest(for exercise: Exercise, trackingType: TrackingType) -> Double {
+        (exercise.loggedSets ?? [])
+            .filter { $0.session != nil && !$0.isWarmup && $0.trackingType == trackingType }
+            .map { $0.trackingType == .time ? Double($0.durationSeconds) : $0.weight }
+            .max() ?? 0
     }
 }
 
@@ -266,12 +298,19 @@ private struct ExerciseCard: View {
                         Text("Last time")
                             .font(.system(size: 12))
                             .foregroundStyle(Color.inkTertiary)
-                        Text("\(Int(lastTime.weight)) × \(lastTime.reps)")
+                        Text(lastTimeText(lastTime))
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.ink)
                     }
                 }
             }
+
+            Picker("Tracking", selection: $entry.trackingType) {
+                ForEach(TrackingType.allCases) { type in
+                    Text(type.label).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
 
             setsList
 
@@ -290,7 +329,7 @@ private struct ExerciseCard: View {
     private var setsList: some View {
         VStack(spacing: 8) {
             ForEach(entry.sets.indices, id: \.self) { index in
-                ActiveSetRow(setNumber: index + 1, set: $entry.sets[index]) {
+                ActiveSetRow(setNumber: index + 1, trackingType: entry.trackingType, set: $entry.sets[index]) {
                     _ = withAnimation(.snappy) {
                         entry.sets.remove(at: index)
                     }
@@ -302,7 +341,7 @@ private struct ExerciseCard: View {
     private var addSetButton: some View {
         Button {
             let last = entry.sets.last
-            entry.sets.append(LoggedDraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0))
+            entry.sets.append(LoggedDraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30))
         } label: {
             Label("Add Set", systemImage: "plus")
                 .font(.caption.bold())
@@ -310,12 +349,27 @@ private struct ExerciseCard: View {
         }
         .buttonStyle(.plain)
     }
+
+    private func lastTimeText(_ set: LoggedSet) -> String {
+        if set.trackingType == .time {
+            return durationLabel(set.durationSeconds)
+        }
+        return "\(Int(set.weight)) × \(set.reps)"
+    }
+}
+
+private func durationLabel(_ totalSeconds: Int) -> String {
+    let minutes = totalSeconds / 60
+    let seconds = totalSeconds % 60
+    if minutes > 0 { return String(format: "%d:%02d", minutes, seconds) }
+    return "\(seconds)s"
 }
 
 /// One editable set row: tap the leading circle to mark it logged, tap into
 /// the weight/reps fields to type a value directly (auto-selected on focus).
 private struct ActiveSetRow: View {
     let setNumber: Int
+    let trackingType: TrackingType
     @Binding var set: LoggedDraftSet
     let onDelete: () -> Void
 
@@ -328,17 +382,30 @@ private struct ActiveSetRow: View {
                 .foregroundStyle(Color.inkTertiary)
                 .frame(minWidth: 16, alignment: .leading)
 
-            HStack(spacing: 4) {
-                SelectAllIntTextField(value: $set.reps)
-                    .frame(width: 32)
-                Text("reps")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if trackingType == .reps {
+                HStack(spacing: 4) {
+                    SelectAllIntTextField(value: $set.reps)
+                        .frame(width: 32)
+                    Text("reps")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.fill)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                HStack(spacing: 4) {
+                    DurationField(totalSeconds: $set.durationSeconds)
+                    Text("min")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.fill)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color.fill)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             HStack(spacing: 4) {
                 SelectAllTextField(value: $set.weight)

@@ -1,6 +1,39 @@
 import Foundation
 import Combine
 
+// MARK: - Display text normalization
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+
+    /// USDA descriptions are stored ALL CAPS, and some Open Food Facts entries are
+    /// submitted the same way. Title-cases text that reads as fully uppercase while
+    /// leaving already mixed-case text (most Open Food Facts entries) untouched.
+    var normalizedFoodText: String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        let letters = trimmed.filter { $0.isLetter }
+        guard !letters.isEmpty, letters == letters.uppercased() else { return trimmed }
+        return trimmed.capitalized(with: Locale(identifier: "en_US"))
+    }
+}
+
+/// Normalizes a raw serving-size label like "28G" or "1.5 OZ" into consistent spacing
+/// and lowercase units. Leaves richer free-text labels (e.g. "1 bar (28 g)") as-is rather
+/// than risk mangling them, and falls back to a computed gram string when there's no label.
+private func normalizedServingDescription(rawText: String?, grams: Double) -> String {
+    guard let rawText, !rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        return OFFProduct.formatGrams(grams)
+    }
+    let pattern = #"^\s*([\d.]+)\s*([a-zA-Z]+)\s*$"#
+    if let regex = try? NSRegularExpression(pattern: pattern),
+       let match = regex.firstMatch(in: rawText, range: NSRange(rawText.startIndex..., in: rawText)),
+       let numberRange = Range(match.range(at: 1), in: rawText),
+       let unitRange = Range(match.range(at: 2), in: rawText) {
+        return "\(rawText[numberRange]) \(rawText[unitRange].lowercased())"
+    }
+    return rawText
+}
+
 struct FoodResult: Identifiable {
     let id = UUID()
     let name: String
@@ -10,6 +43,9 @@ struct FoodResult: Identifiable {
     let barcode: String?
     let servingSizeGrams: Double
     let servingDescription: String
+    /// Alternate ways to log this food (e.g. its labeled serving alongside a flat 100 g
+    /// reference), always non-empty and led by `servingDescription`/`servingSizeGrams`.
+    let servingOptions: [ServingOption]
     let calories: Double
     let proteinGrams: Double
     let carbsGrams: Double
@@ -17,6 +53,27 @@ struct FoodResult: Identifiable {
     let sugarGrams: Double
     let fiberGrams: Double
     let sodiumMilligrams: Double
+}
+
+/// One selectable way to log a food's amount — a label ("1 cup", "100 g") paired with
+/// its gram weight. Mirrors how MyFitnessPal lets a food carry several servings instead
+/// of a single fixed one.
+struct ServingOption: Identifiable, Hashable, Codable {
+    var description: String
+    var grams: Double
+
+    var id: String { "\(description)|\(grams)" }
+}
+
+/// Builds the default+100g serving option list shared by both food sources: the food's
+/// labeled/natural serving first, with a flat 100 g reference appended when it's meaningfully
+/// different (so a food whose natural serving already *is* ~100g doesn't show a duplicate).
+private func buildServingOptions(primaryDescription: String, primaryGrams: Double) -> [ServingOption] {
+    var options = [ServingOption(description: primaryDescription, grams: primaryGrams)]
+    if abs(primaryGrams - 100) > 1 {
+        options.append(ServingOption(description: "100 g", grams: 100))
+    }
+    return options
 }
 
 @MainActor
@@ -63,12 +120,30 @@ final class FoodLookupService: ObservableObject {
         var seen = Set<String>()
         var merged: [FoodResult] = []
         for result in usdaResults + offResults {
-            let key = "\(result.name.lowercased())|\(result.brand?.lowercased() ?? "")"
-            if seen.insert(key).inserted {
+            if seen.insert(Self.dedupKey(for: result)).inserted {
                 merged.append(result)
             }
         }
         return Array(merged.prefix(30))
+    }
+
+    /// A barcode is a much stronger identity signal than name/brand text, so two results
+    /// sharing one (e.g. the same product returned by both USDA and Open Food Facts) are
+    /// treated as duplicates even if their descriptions read differently. Otherwise falls
+    /// back to normalized name+brand text — punctuation/whitespace stripped and lowercased,
+    /// so "Chicken Breast," and "chicken breast" collapse to the same key.
+    private static func dedupKey(for result: FoodResult) -> String {
+        if let barcode = result.barcode, !barcode.isEmpty {
+            return "barcode:\(barcode)"
+        }
+        return "text:\(normalizeForDedup(result.name))|\(normalizeForDedup(result.brand ?? ""))"
+    }
+
+    private static func normalizeForDedup(_ text: String) -> String {
+        text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     // MARK: - Open Food Facts
@@ -168,14 +243,16 @@ struct OFFProduct: Decodable {
         guard let name = product_name, !name.isEmpty, let nutriments else { return nil }
         let servingGrams = serving_quantity ?? Self.parseGrams(from: serving_size) ?? 100
         let scale = servingGrams / 100
+        let servingDescription = normalizedServingDescription(rawText: serving_size, grams: servingGrams)
         return FoodResult(
-            name: name,
-            brand: brands?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces),
+            name: name.normalizedFoodText,
+            brand: brands?.components(separatedBy: ",").first?.trimmingCharacters(in: .whitespaces).normalizedFoodText,
             source: .openFoodFacts,
             externalId: barcode,
             barcode: barcode,
             servingSizeGrams: servingGrams,
-            servingDescription: serving_size ?? Self.formatGrams(servingGrams),
+            servingDescription: servingDescription,
+            servingOptions: buildServingOptions(primaryDescription: servingDescription, primaryGrams: servingGrams),
             calories: nutriments.energy_kcal_serving ?? (nutriments.energy_kcal_100g ?? 0) * scale,
             proteinGrams: nutriments.proteins_serving ?? (nutriments.proteins_100g ?? 0) * scale,
             carbsGrams: nutriments.carbohydrates_serving ?? (nutriments.carbohydrates_100g ?? 0) * scale,
@@ -234,6 +311,9 @@ struct USDAFood: Decodable {
     let gtinUpc: String?
     let servingSize: Double?
     let servingSizeUnit: String?
+    /// Branded foods carry a human-readable label serving (e.g. "1 cup (240 mL)")
+    /// alongside `servingSize`/`servingSizeUnit`'s raw numeric form.
+    let householdServingFullText: String?
     let foodNutrients: [USDANutrient]
 
     /// USDA's `foodNutrients` values in search results are always normalized per 100g,
@@ -249,21 +329,43 @@ struct USDAFood: Decodable {
         }
 
         let servingGrams: Double
-        if let servingSize, servingSize > 0, servingSizeUnit?.lowercased().contains("g") == true {
-            servingGrams = servingSize
+        if let servingSize, servingSize > 0 {
+            // Exact-match the unit rather than substring-matching "g", which previously
+            // also matched "mg" (and would've matched "kg") and silently mistreated
+            // milligram/kilogram servings as gram servings.
+            switch servingSizeUnit?.lowercased() {
+            case "g", "gram", "grams":
+                servingGrams = servingSize
+            case "kg", "kilogram", "kilograms":
+                servingGrams = servingSize * 1000
+            case "mg", "milligram", "milligrams":
+                servingGrams = servingSize / 1000
+            case "oz", "ounce", "ounces":
+                servingGrams = servingSize * 28.3495
+            case "lb", "lbs", "pound", "pounds":
+                servingGrams = servingSize * 453.592
+            default:
+                // Units like "ml" or "IU" aren't a reliable weight conversion; fall back.
+                servingGrams = 100
+            }
         } else {
             servingGrams = 100
         }
         let scale = servingGrams / 100
+        // Prefer the label's household measure ("1 cup") as the display description when
+        // present; it's far more useful to log against than a bare gram figure.
+        let servingDescription = householdServingFullText?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            ?? (servingGrams.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(servingGrams)) g" : String(format: "%.1f g", servingGrams))
 
         return FoodResult(
-            name: description,
-            brand: brandName,
+            name: description.normalizedFoodText,
+            brand: brandName?.normalizedFoodText,
             source: .usda,
             externalId: String(fdcId),
             barcode: gtinUpc,
             servingSizeGrams: servingGrams,
-            servingDescription: servingGrams.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(servingGrams)) g" : String(format: "%.1f g", servingGrams),
+            servingDescription: servingDescription,
+            servingOptions: buildServingOptions(primaryDescription: servingDescription, primaryGrams: servingGrams),
             calories: value(for: "Energy", unit: "KCAL") * scale,
             proteinGrams: value(for: "Protein") * scale,
             carbsGrams: value(for: "Carbohydrate") * scale,

@@ -6,6 +6,7 @@ private struct DraftEntry: Identifiable {
 
     let id = UUID()
     var exercise: Exercise
+    var trackingType: TrackingType = .reps
     var sets: [DraftSet] = defaultSets
 }
 
@@ -13,6 +14,7 @@ private struct DraftSet: Identifiable {
     let id = UUID()
     var reps: Int = 10
     var weight: Double = 0
+    var durationSeconds: Int = 30
 }
 
 struct NewTemplateView: View {
@@ -31,8 +33,8 @@ struct NewTemplateView: View {
         _name = State(initialValue: template?.name ?? "")
         _draftEntries = State(initialValue: (template?.sortedEntries ?? []).compactMap { entry in
             guard let exercise = entry.exercise else { return nil }
-            let sets = entry.sortedSetEntries.map { DraftSet(reps: $0.targetReps, weight: $0.targetWeight) }
-            return DraftEntry(exercise: exercise, sets: sets.isEmpty ? DraftEntry.defaultSets : sets)
+            let sets = entry.sortedSetEntries.map { DraftSet(reps: $0.targetReps, weight: $0.targetWeight, durationSeconds: $0.targetDurationSeconds) }
+            return DraftEntry(exercise: exercise, trackingType: entry.trackingType, sets: sets.isEmpty ? DraftEntry.defaultSets : sets)
         })
     }
 
@@ -172,12 +174,12 @@ struct NewTemplateView: View {
         }
 
         for (index, entry) in draftEntries.enumerated() {
-            let templateEntry = TemplateExerciseEntry(exercise: entry.exercise, order: index)
+            let templateEntry = TemplateExerciseEntry(exercise: entry.exercise, order: index, trackingType: entry.trackingType)
             templateEntry.template = template
             modelContext.insert(templateEntry)
 
             for (setIndex, draftSet) in entry.sets.enumerated() {
-                let setEntry = TemplateSetEntry(setNumber: setIndex + 1, targetReps: draftSet.reps, targetWeight: draftSet.weight)
+                let setEntry = TemplateSetEntry(setNumber: setIndex + 1, targetReps: draftSet.reps, targetWeight: draftSet.weight, targetDurationSeconds: draftSet.durationSeconds)
                 setEntry.templateExercise = templateEntry
                 modelContext.insert(setEntry)
             }
@@ -216,7 +218,7 @@ private struct ExerciseCard: View {
                 Menu {
                     Button {
                         let last = entry.sets.last
-                        entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0))
+                        entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30))
                     } label: {
                         Label("Add Set", systemImage: "plus")
                     }
@@ -233,9 +235,16 @@ private struct ExerciseCard: View {
                 }
             }
 
+            Picker("Tracking", selection: $entry.trackingType) {
+                ForEach(TrackingType.allCases) { type in
+                    Text(type.label).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+
             VStack(spacing: 8) {
                 ForEach(entry.sets.indices, id: \.self) { index in
-                    SetRow(setNumber: index + 1, set: $entry.sets[index]) {
+                    SetRow(setNumber: index + 1, trackingType: entry.trackingType, set: $entry.sets[index]) {
                         _ = withAnimation(.snappy) {
                             entry.sets.remove(at: index)
                         }
@@ -245,7 +254,7 @@ private struct ExerciseCard: View {
 
             Button {
                 let last = entry.sets.last
-                entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0))
+                entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30))
             } label: {
                 Label("Add Set", systemImage: "plus")
                     .font(.caption.bold())
@@ -259,6 +268,7 @@ private struct ExerciseCard: View {
 
 private struct SetRow: View {
     let setNumber: Int
+    let trackingType: TrackingType
     @Binding var set: DraftSet
     let onDelete: () -> Void
 
@@ -271,21 +281,34 @@ private struct SetRow: View {
                 .background(Color.training.opacity(0.12))
                 .clipShape(Circle())
 
-            HStack(spacing: 4) {
-                Stepper(value: $set.reps, in: 1...50) {
-                    Text("\(set.reps)")
-                        .font(.subheadline.bold())
-                        .frame(minWidth: 22, alignment: .trailing)
+            if trackingType == .reps {
+                HStack(spacing: 4) {
+                    Stepper(value: $set.reps, in: 1...50) {
+                        Text("\(set.reps)")
+                            .font(.subheadline.bold())
+                            .frame(minWidth: 22, alignment: .trailing)
+                    }
+                    .fixedSize()
+                    Text("reps")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .fixedSize()
-                Text("reps")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color(.tertiarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                HStack(spacing: 4) {
+                    DurationField(totalSeconds: $set.durationSeconds)
+                    Text("min")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color(.tertiarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color(.tertiarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             HStack(spacing: 4) {
                 SelectAllTextField(value: $set.weight)

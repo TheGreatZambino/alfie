@@ -55,6 +55,16 @@ struct WorkoutSessionDetailView: View {
                 summaryStat(label: "Volume", value: "\(Int(session.totalVolume)) lb")
                 summaryStat(label: "Exercises", value: "\(session.exerciseCount)")
             }
+
+            if session.prCount > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "trophy.fill")
+                        .foregroundStyle(Color.workoutGold)
+                    Text("\(session.prCount) new PR\(session.prCount == 1 ? "" : "s")")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                }
+            }
         }
         .cardStyle()
     }
@@ -88,16 +98,34 @@ struct WorkoutSessionDetailView: View {
                             .font(.system(size: 13))
                             .foregroundStyle(Color.inkTertiary)
                         Spacer()
-                        Text("\(Int(loggedSet.weight)) lb × \(loggedSet.reps)")
+                        if loggedSet.isPR {
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.workoutGold)
+                        }
+                        Text(setSummary(loggedSet))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Color.ink)
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.fill))
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(loggedSet.isPR ? Color.workoutGold.opacity(0.12) : Color.fill))
                 }
             }
         }
         .cardStyle()
+    }
+
+    private func setSummary(_ loggedSet: LoggedSet) -> String {
+        guard loggedSet.trackingType == .time else {
+            return "\(Int(loggedSet.weight)) lb × \(loggedSet.reps)"
+        }
+        let minutes = loggedSet.durationSeconds / 60
+        let seconds = loggedSet.durationSeconds % 60
+        let durationText = minutes > 0 ? String(format: "%d:%02d", minutes, seconds) : "\(seconds)s"
+        if loggedSet.weight > 0 {
+            return "\(Int(loggedSet.weight)) lb × \(durationText)"
+        }
+        return durationText
     }
 }
