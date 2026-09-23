@@ -154,12 +154,17 @@ private struct BalanceCard: View {
 
             SegmentedBar(
                 segments: [
-                    .init(fraction: billsFraction, color: .white.opacity(0.9)),
-                    .init(fraction: savingsFraction, color: .white.opacity(0.6)),
-                    .init(fraction: spentFraction, color: .white.opacity(0.38)),
+                    .init(fraction: committedFraction, color: Color(hex: "#F2C94C")),
+                    .init(fraction: spentFraction, color: .white),
                 ],
-                trackColor: .white.opacity(0.2)
+                trackColor: .white.opacity(0.22)
             )
+
+            HStack(spacing: 14) {
+                legendItem(color: Color(hex: "#F2C94C"), label: "Committed")
+                legendItem(color: .white, label: "Spent")
+                legendItem(color: .white.opacity(0.22), label: "Left")
+            }
 
             Text("\(viewModel.incomeForPeriod, format: .currency(code: "USD").precision(.fractionLength(0))) in · \(viewModel.billAllocationPerPaycheck + viewModel.totalSpending, format: .currency(code: "USD").precision(.fractionLength(0))) committed · \(perDayToPayday, format: .currency(code: "USD").precision(.fractionLength(0)))/day to payday")
                 .font(.system(size: 14))
@@ -168,9 +173,19 @@ private struct BalanceCard: View {
         .heroCardStyle(pillar: .moneyFill)
     }
 
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.75))
+        }
+    }
+
     private var total: Double { max(viewModel.incomeForPeriod, 1) }
-    private var billsFraction: Double { (viewModel.billAllocationPerPaycheck - viewModel.savingsAllocation) / total }
-    private var savingsFraction: Double { viewModel.savingsAllocation / total }
+    private var committedFraction: Double { viewModel.billAllocationPerPaycheck / total }
     private var spentFraction: Double { viewModel.totalSpending / total }
 
     private var perDayToPayday: Double {

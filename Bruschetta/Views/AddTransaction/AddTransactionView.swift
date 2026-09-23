@@ -131,7 +131,7 @@ struct AddTransactionView: View {
         let dollars = String(parts.first ?? "")
         let cents = parts.count > 1 ? "." + parts[1] : ""
         return Text("$\(dollars)").font(.system(size: 64, weight: .bold, design: .rounded)).foregroundStyle(Color.ink)
-            + Text(cents).font(.system(size: 64, weight: .bold, design: .rounded)).foregroundStyle(Color.inkQuaternary)
+            + Text(cents).font(.system(size: 64, weight: .bold, design: .rounded)).foregroundStyle(Color.ink)
     }
 
     // MARK: - Category chips
@@ -429,7 +429,7 @@ private struct DatePickerSheet: View {
                     }
                 }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.height(480)])
     }
 }
 

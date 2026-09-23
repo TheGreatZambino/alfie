@@ -101,10 +101,17 @@ final class OverviewViewModel: ObservableObject {
             savingsAllocationThisPeriod = savingsAllocation
             spendingThisPeriod = spending
             remainingThisPeriod = incomeThisPeriod - essentialBillAllocation - savingsAllocation - spending
+
+            let historicalRatios = Self.historicalEssentialRatios(
+                income: income,
+                essentialBillAllocation: essentialBillAllocation,
+                transactions: transactions
+            )
             expenseScore = Self.expenseScore(
                 essentialRemaining: incomeThisPeriod - essentialBillAllocation - spending,
                 income: incomeThisPeriod,
-                savingsGoal: savingsAllocation
+                savingsGoal: savingsAllocation,
+                historicalRatios: historicalRatios
             )
         } else {
             incomeThisPeriod = 0
@@ -187,21 +194,71 @@ final class OverviewViewModel: ObservableObject {
         overallScore = (workoutScore + expenseScore + calorieScore) / 3
     }
 
-    /// Scores expense management on two things: staying in the black on essential bills and
-    /// spending (not counting money set aside for savings/investing), and separately hitting
-    /// the savings goal. Allocating money to savings shouldn't drag the score down the same way
-    /// overspending on real expenses does.
-    private static func balanceScore(remaining: Double, income: Double) -> Double {
-        guard remaining < 0 else { return 100 }
-        guard income > 0 else { return 0 }
-        let overspendFraction = min(1, -remaining / income)
-        return max(0, (1 - overspendFraction) * 100)
+    /// How many completed pay periods of transaction history are needed before scoring switches
+    /// from the fixed cold-start curve to the user's own historical baseline.
+    private static let minHistoricalPeriodsForBaseline = 3
+    private static let historicalPeriodsToConsider = 6
+
+    /// Scores expense management on two things: staying within essential bills and spending
+    /// (not counting money set aside for savings/investing) relative to the user's own recent
+    /// history, and separately hitting the savings goal. Allocating money to savings shouldn't
+    /// drag the score down the same way overspending on real expenses does.
+    ///
+    /// Rather than a fixed "target buffer" percentage (which varies wildly by person), the
+    /// essential-spending score is calibrated against the user's own trailing pay periods: a
+    /// period in line with their own average lands around 50, better-than-usual periods climb
+    /// toward 100, and worse-than-usual periods fall toward 0. This self-calibrates to income
+    /// level and spending habits without asking the user to configure anything. Until there's
+    /// enough history to establish a baseline, it falls back to a simple non-negative-balance
+    /// curve.
+    private static func balanceScore(remaining: Double, income: Double, historicalRatios: [Double]) -> Double {
+        guard income > 0 else { return remaining >= 0 ? 100 : 0 }
+        let ratio = remaining / income
+
+        guard historicalRatios.count >= minHistoricalPeriodsForBaseline else {
+            guard ratio < 0 else { return 100 }
+            return max(0, (1 + ratio) * 100)
+        }
+
+        let mean = historicalRatios.reduce(0, +) / Double(historicalRatios.count)
+        let variance = historicalRatios.reduce(0) { $0 + pow($1 - mean, 2) } / Double(historicalRatios.count)
+        // Floor stdDev so a run of nearly-identical past periods doesn't make the score
+        // hypersensitive to tiny fluctuations this period.
+        let stdDev = max(sqrt(variance), 0.02)
+        let z = max(-3, min(3, (ratio - mean) / stdDev))
+        return 50 + (z / 3) * 50
     }
 
-    private static func expenseScore(essentialRemaining: Double, income: Double, savingsGoal: Double) -> Double {
-        let essentialScore = balanceScore(remaining: essentialRemaining, income: income)
+    private static func expenseScore(essentialRemaining: Double, income: Double, savingsGoal: Double, historicalRatios: [Double]) -> Double {
+        let essentialScore = balanceScore(remaining: essentialRemaining, income: income, historicalRatios: historicalRatios)
         guard savingsGoal > 0 else { return essentialScore }
         let savingsScore = min(1, max(0, essentialRemaining) / savingsGoal) * 100
         return essentialScore * 0.7 + savingsScore * 0.3
+    }
+
+    /// Builds the trailing essential-remaining/income ratios used to calibrate `balanceScore`,
+    /// using the same essential-bill allocation as the current period (bill allocations are
+    /// treated as roughly stable) applied to each prior period's actual transactions. Periods
+    /// with no recorded transactions are skipped rather than counted as a perfect $0-spend period.
+    private static func historicalEssentialRatios(
+        income: Income,
+        essentialBillAllocation: Double,
+        transactions: [Transaction]
+    ) -> [Double] {
+        guard income.amountPerPeriod > 0 else { return [] }
+        let periods = PayPeriodCalculator.previousPayPeriods(
+            nextPayDate: income.nextPayDate,
+            cadence: income.cadence,
+            count: historicalPeriodsToConsider
+        )
+        return periods.compactMap { period -> Double? in
+            let periodTransactions = transactions.filter {
+                $0.date >= period.start && $0.date <= period.end && $0.category?.includeInOverview != false
+            }
+            guard !periodTransactions.isEmpty else { return nil }
+            let spending = periodTransactions.reduce(0) { $0 + $1.amount }
+            let remaining = income.amountPerPeriod - essentialBillAllocation - spending
+            return remaining / income.amountPerPeriod
+        }
     }
 }

@@ -15,14 +15,15 @@ struct SegmentedBar: View {
 
     var body: some View {
         GeometryReader { geo in
-            let totalGap = gap * CGFloat(max(segments.count - 1, 0))
+            let visibleSegments = segments.filter { $0.fraction > 0 }
+            let totalGap = gap * CGFloat(max(visibleSegments.count - 1, 0))
             let usableWidth = max(geo.size.width - totalGap, 0)
 
             HStack(spacing: gap) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                ForEach(Array(visibleSegments.enumerated()), id: \.offset) { _, segment in
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(segment.color)
-                        .frame(width: usableWidth * CGFloat(max(segment.fraction, 0)))
+                        .frame(width: usableWidth * CGFloat(segment.fraction))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

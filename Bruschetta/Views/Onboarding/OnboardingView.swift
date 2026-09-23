@@ -88,6 +88,7 @@ struct OnboardingView: View {
                                 DatePicker("Next pay date", selection: $nextPayDate, displayedComponents: .date)
                                     .datePickerStyle(.graphical)
                                     .tint(.money)
+                                    .frame(height: 340)
                             }
                             .cardStyle()
                         }
@@ -188,11 +189,10 @@ struct OnboardingView: View {
     }
 
     private var amountInputCard: some View {
-        CurrencyTextField(placeholder: "0", text: $amountText)
-            .font(.system(size: 34, weight: .bold, design: .rounded))
+        CurrencyTextField(placeholder: "0", text: $amountText, fontSize: 24)
             .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity)
-            .cardStyle()
+            .cardStyle(radius: 20)
     }
 
     private var cadenceChips: some View {

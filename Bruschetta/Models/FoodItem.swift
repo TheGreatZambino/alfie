@@ -33,6 +33,8 @@ final class FoodItem {
 
     var servingSizeGrams: Double = 100
     var servingDescription: String = "100 g"
+    /// JSON-encoded `[ServingOption]`. Use `servingOptions` to read/write.
+    private var servingOptionsJSON: String = "[]"
     var calories: Double = 0
     var proteinGrams: Double = 0
     var carbsGrams: Double = 0
@@ -48,7 +50,7 @@ final class FoodItem {
     var entries: [NutritionEntry]? = []
 
     init(name: String, brand: String? = nil, barcode: String? = nil, source: FoodSource, externalId: String? = nil,
-         servingSizeGrams: Double = 100, servingDescription: String = "100 g",
+         servingSizeGrams: Double = 100, servingDescription: String = "100 g", servingOptions: [ServingOption] = [],
          calories: Double = 0, proteinGrams: Double = 0, carbsGrams: Double = 0, fatGrams: Double = 0,
          sugarGrams: Double = 0, fiberGrams: Double = 0, sodiumMilligrams: Double = 0,
          isUserCreated: Bool = false) {
@@ -67,10 +69,31 @@ final class FoodItem {
         self.fiberGrams = fiberGrams
         self.sodiumMilligrams = sodiumMilligrams
         self.isUserCreated = isUserCreated
+        self.servingOptions = servingOptions.isEmpty
+            ? [ServingOption(description: servingDescription, grams: servingSizeGrams)]
+            : servingOptions
     }
 
     var source: FoodSource {
         get { FoodSource(rawValue: sourceRaw) ?? .custom }
         set { sourceRaw = newValue.rawValue }
+    }
+
+    /// Alternate ways to log this food (its labeled serving, a flat 100 g reference, etc).
+    /// Falls back to a single option built from `servingDescription`/`servingSizeGrams` if
+    /// nothing was ever encoded (e.g. items created before this field existed).
+    var servingOptions: [ServingOption] {
+        get {
+            guard let data = servingOptionsJSON.data(using: .utf8),
+                  let decoded = try? JSONDecoder().decode([ServingOption].self, from: data),
+                  !decoded.isEmpty else {
+                return [ServingOption(description: servingDescription, grams: servingSizeGrams)]
+            }
+            return decoded
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue), let json = String(data: data, encoding: .utf8) else { return }
+            servingOptionsJSON = json
+        }
     }
 }

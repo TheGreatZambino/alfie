@@ -4,12 +4,20 @@ import UIKit
 struct CurrencyTextField: View {
     let placeholder: String
     @Binding var text: String
+    var fontSize: CGFloat = 17
 
     var body: some View {
         HStack(spacing: 2) {
             Text("$")
+                .font(.system(size: fontSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
-            SelectAllOnFocusTextField(placeholder: placeholder, text: $text, keyboardType: .decimalPad)
+            SelectAllOnFocusTextField(
+                placeholder: placeholder,
+                text: $text,
+                keyboardType: .decimalPad,
+                font: .systemFont(ofSize: fontSize, weight: .semibold)
+            )
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -19,11 +27,13 @@ struct SelectAllOnFocusTextField: UIViewRepresentable {
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
     var textAlignment: NSTextAlignment = .natural
+    var font: UIFont = .preferredFont(forTextStyle: .body)
 
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
         textField.keyboardType = keyboardType
         textField.textAlignment = textAlignment
+        textField.font = font
         textField.delegate = context.coordinator
         textField.addTarget(
             context.coordinator,
@@ -36,6 +46,7 @@ struct SelectAllOnFocusTextField: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextField, context: Context) {
         uiView.placeholder = placeholder
+        uiView.font = font
         if uiView.text != text {
             uiView.text = text
         }

@@ -77,6 +77,9 @@ extension Color {
     static let trainingFill = Color(hex: "#C05E45")
     static let foodFill = Color(hex: "#A07A22")
 
+    /// 2+ workouts in a day on the calendar, and hitting a PR — constant across modes.
+    static let workoutGold = Color(hex: "#D4AF37")
+
     static let moneyTint = Color.dynamic(r: 14, g: 124, b: 107, lightOpacity: 0.12, darkOpacity: 0.18)
     static let trainingTint = Color.dynamic(r: 192, g: 94, b: 69, lightOpacity: 0.12, darkOpacity: 0.18)
     static let foodTint = Color.dynamic(r: 160, g: 122, b: 34, lightOpacity: 0.12, darkOpacity: 0.18)
