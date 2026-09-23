@@ -144,7 +144,7 @@ struct WorkoutCalendarView: View {
             HStack(spacing: 10) {
                 SummaryTile(label: "Strength min", value: "\(strengthMinutes)")
                 SummaryTile(label: "Cardio min", value: "\(cardioMinutes)")
-                SummaryTile(label: "Cardio miles", value: String(format: "%.1f", cardioMiles))
+                SummaryTile(label: "Miles", value: String(format: "%.1f", cardioMiles))
             }
 
             if prCount > 0 {
