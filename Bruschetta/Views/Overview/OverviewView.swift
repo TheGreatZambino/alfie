@@ -249,13 +249,13 @@ private struct WeekTriadCard: View {
 
             HStack(spacing: 8) {
                 if trackedModules.contains(.finance) {
-                    TriadColumn(pillar: .money, symbol: "wallet.bifold", progress: viewModel.expenseScore / 100, label: "Money", status: statusText(viewModel.expenseScore))
+                    TriadColumn(pillar: .money, symbol: "wallet.bifold", progress: viewModel.expenseScore / 100, label: "Finances", status: statusText(viewModel.expenseScore))
                 }
                 if trackedModules.contains(.workouts) {
-                    TriadColumn(pillar: .training, symbol: "figure.strengthtraining.traditional", progress: viewModel.workoutScore / 100, label: "Training", status: statusText(viewModel.workoutScore))
+                    TriadColumn(pillar: .training, symbol: "figure.strengthtraining.traditional", progress: viewModel.workoutScore / 100, label: "Workouts", status: statusText(viewModel.workoutScore))
                 }
                 if trackedModules.contains(.nutrition) {
-                    TriadColumn(pillar: .food, symbol: "fork.knife", progress: viewModel.calorieScore / 100, label: "Food", status: statusText(viewModel.calorieScore))
+                    TriadColumn(pillar: .food, symbol: "fork.knife", progress: viewModel.calorieScore / 100, label: "Nutrition", status: statusText(viewModel.calorieScore))
                 }
             }
         }
@@ -310,11 +310,17 @@ private struct PillarRowsCard: View {
             if trackedModules.contains(.finance) {
                 PillarRow(
                     pillar: .money,
-                    label: "MONEY",
+                    label: "FINANCES",
                     heroValue: viewModel.remainingThisPeriod.formatted(.currency(code: "USD").precision(.fractionLength(0))),
                     supporting: "left · \(daysToPaydayText)"
                 ) {
-                    SegmentedBar(segments: [.init(fraction: moneyFraction, color: .money)], trackColor: .moneyTint)
+                    SegmentedBar(
+                        segments: [
+                            .init(fraction: committedFraction, color: Color(hex: "#F2C94C")),
+                            .init(fraction: spentFraction, color: .money),
+                        ],
+                        trackColor: .moneyTint
+                    )
                 } action: {
                     selectedTab = .finances
                 }
@@ -327,7 +333,7 @@ private struct PillarRowsCard: View {
             if trackedModules.contains(.workouts) {
                 PillarRow(
                     pillar: .training,
-                    label: "TRAINING",
+                    label: "WORKOUTS",
                     heroValue: viewModel.stepsThisWeek.formatted(),
                     supporting: "steps this week",
                     visualHeight: nil
@@ -348,7 +354,7 @@ private struct PillarRowsCard: View {
             if trackedModules.contains(.nutrition) {
                 PillarRow(
                     pillar: .food,
-                    label: "FOOD",
+                    label: "NUTRITION",
                     heroValue: "\(max(Int(viewModel.calorieGoal - caloriesToday), 0).formatted())",
                     supporting: "left today · \(viewModel.goodCalorieDays) of 7 on target"
                 ) {
@@ -371,10 +377,12 @@ private struct PillarRowsCard: View {
         return "\(daysToPayday) days to payday"
     }
 
-    private var moneyFraction: Double {
-        let total = max(viewModel.incomeThisPeriod, 1)
-        let committed = viewModel.billsAllocationThisPeriod + viewModel.savingsAllocationThisPeriod + viewModel.spendingThisPeriod
-        return min(1, max(committed / total, 0))
+    private var moneyTotal: Double { max(viewModel.incomeThisPeriod, 1) }
+    private var committedFraction: Double {
+        (viewModel.billsAllocationThisPeriod + viewModel.savingsAllocationThisPeriod) / moneyTotal
+    }
+    private var spentFraction: Double {
+        viewModel.spendingThisPeriod / moneyTotal
     }
 }
 
