@@ -3,7 +3,7 @@ import SwiftData
 
 struct BillsSettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Bill.dueDay) private var bills: [Bill]
+    @Query(sort: \Bill.name) private var bills: [Bill]
 
     @State private var showAddBill = false
     @State private var editingBill: Bill?
@@ -18,7 +18,7 @@ struct BillsSettingsView: View {
                         VStack(alignment: .leading) {
                             Text(bill.name)
                                 .foregroundStyle(.primary)
-                            Text("Due day \(bill.dueDay)")
+                            Text("Due date \(bill.dueDay)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -76,10 +76,11 @@ private struct BillEditView: View {
     @State private var amountText: String = ""
     @State private var allocationAmountText: String = ""
     @State private var dueDay: Int = 1
-    @State private var dueDayText: String = "1"
+    @State private var showDueDatePicker = false
     @State private var category: Category?
     @State private var isActive: Bool = true
     @State private var notes: String = ""
+    @State private var showDeleteConfirmation = false
 
     private var availableCategories: [Category] {
         categories
@@ -94,18 +95,19 @@ private struct BillEditView: View {
                     TextField("Name", text: $name)
                     CurrencyTextField(placeholder: "Total Amount", text: $amountText)
                     CurrencyTextField(placeholder: "Allocate per Paycheck", text: $allocationAmountText)
-                    HStack {
-                        Text("Due day")
-                        Spacer()
-                        SelectAllOnFocusTextField(placeholder: "Day", text: $dueDayText, keyboardType: .numberPad, textAlignment: .right)
-                            .frame(width: 50)
-                            .onChange(of: dueDayText) { _, newValue in
-                                let clamped = min(max(Int(newValue) ?? 1, 1), 31)
-                                dueDay = clamped
-                                if newValue != String(clamped) {
-                                    dueDayText = String(clamped)
-                                }
-                            }
+                    Button {
+                        showDueDatePicker = true
+                    } label: {
+                        HStack {
+                            Text("Due date")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(ordinalDayLabel(dueDay))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .sheet(isPresented: $showDueDatePicker) {
+                        DueDayPickerView(selectedDay: $dueDay)
                     }
                     Picker("Category", selection: $category) {
                         Text("None").tag(Category?.none)
@@ -123,9 +125,23 @@ private struct BillEditView: View {
                 Section("Notes") {
                     TextField("Notes (optional)", text: $notes)
                 }
+
+                if bill != nil {
+                    Section {
+                        Button("Delete Bill", role: .destructive) {
+                            showDeleteConfirmation = true
+                        }
+                    }
+                }
             }
             .navigationTitle(bill == nil ? "Add Bill" : "Edit Bill")
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog("Delete this bill?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete Bill", role: .destructive) { delete() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This can't be undone.")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -145,7 +161,6 @@ private struct BillEditView: View {
         amountText = String(format: "%.2f", bill.amount)
         allocationAmountText = String(format: "%.2f", bill.allocationAmount)
         dueDay = bill.dueDay
-        dueDayText = String(bill.dueDay)
         category = bill.category
         isActive = bill.isActive
         notes = bill.notes ?? ""
@@ -168,5 +183,98 @@ private struct BillEditView: View {
         }
         try? modelContext.save()
         dismiss()
+    }
+
+    private func delete() {
+        guard let bill else { return }
+        modelContext.delete(bill)
+        try? modelContext.save()
+        dismiss()
+    }
+
+    private func ordinalDayLabel(_ day: Int) -> String {
+        let suffix: String
+        switch day {
+        case 11, 12, 13: suffix = "th"
+        default:
+            switch day % 10 {
+            case 1: suffix = "st"
+            case 2: suffix = "nd"
+            case 3: suffix = "rd"
+            default: suffix = "th"
+            }
+        }
+        return "\(day)\(suffix)"
+    }
+}
+
+private struct DueDayPickerView: View {
+    @Binding var selectedDay: Int
+    @Environment(\.dismiss) private var dismiss
+
+    private let calendar = Calendar.current
+    private let columns = Array(repeating: GridItem(.flexible()), count: 7)
+
+    /// Uses the current month's layout purely for a familiar calendar grid; the value stored is just a day-of-month (1-31), not a specific date.
+    private var leadingBlankCount: Int {
+        let now = Date()
+        let components = calendar.dateComponents([.year, .month], from: now)
+        guard let firstOfMonth = calendar.date(from: components) else { return 0 }
+        let weekday = calendar.component(.weekday, from: firstOfMonth)
+        return (weekday - calendar.firstWeekday + 7) % 7
+    }
+
+    private var weekdaySymbols: [String] {
+        let symbols = calendar.shortWeekdaySymbols
+        let offset = calendar.firstWeekday - 1
+        return Array(symbols[offset...] + symbols[..<offset])
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                HStack {
+                    ForEach(weekdaySymbols, id: \.self) { symbol in
+                        Text(symbol)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(0..<leadingBlankCount, id: \.self) { _ in
+                        Color.clear.frame(height: 40)
+                    }
+                    ForEach(1...31, id: \.self) { day in
+                        Button {
+                            selectedDay = day
+                            dismiss()
+                        } label: {
+                            Text("\(day)")
+                                .font(.body)
+                                .frame(width: 40, height: 40)
+                                .background(
+                                    Circle()
+                                        .fill(day == selectedDay ? Color.accentColor : Color.clear)
+                                )
+                                .foregroundStyle(day == selectedDay ? Color.white : Color.primary)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("Due Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }

@@ -95,7 +95,7 @@ struct OverviewViewModelTests {
     @Test
     func expenseScoreWeightsSavingsGoalAgainstEssentialOverspend() throws {
         let context = try makeContext()
-        let savingsCategory = Category(name: "Savings", icon: "banknote.fill", colorHex: "#2E7D32", type: .bill, sortOrder: 0)
+        let savingsCategory = Category(name: "Savings", icon: "banknote.fill", colorHex: "#2E7D32", sortOrder: 0)
         let income = Income(amount: 1000, payCadence: .biweekly, nextPayDate: Date().addingTimeInterval(14 * 24 * 3600))
         let essentialBill = Bill(name: "Rent", amount: 900, allocationAmount: 900, dueDay: 1)
         let savingsBill = Bill(name: "Savings", amount: 50, allocationAmount: 50, dueDay: 1, category: savingsCategory)

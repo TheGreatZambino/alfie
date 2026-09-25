@@ -28,9 +28,6 @@ struct CategoriesSettingsView: View {
                         Text(category.name)
                             .foregroundStyle(.primary)
                         Spacer()
-                        Text(category.type == .bill ? "Bill" : "Spending")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                         Toggle("", isOn: Binding(
                             get: { category.includeInOverview },
                             set: { newValue in
@@ -101,20 +98,48 @@ private struct CategoryEditView: View {
     @State private var name: String = ""
     @State private var icon: String = "tag.fill"
     @State private var colorHex: String = "#0D7377"
-    @State private var type: CategoryType = .spending
     @State private var includeInOverview: Bool = true
 
-    private let iconOptions = ["tag.fill", "cart.fill", "fork.knife", "fuelpump.fill", "wrench.and.screwdriver.fill", "tv.fill", "bag.fill", "cross.case.fill", "repeat.circle.fill", "house.fill", "car.fill", "airplane", "gift.fill", "pawprint.fill", "book.fill"]
+    private let iconOptions = [
+        // General
+        "tag.fill", "star.fill", "flag.fill", "sparkles", "ellipsis.circle.fill",
+        // Shopping & dining
+        "cart.fill", "bag.fill", "basket.fill", "fork.knife", "cup.and.saucer.fill",
+        "takeoutbag.and.cup.and.straw.fill", "wineglass.fill",
+        // Home
+        "house.fill", "bed.double.fill", "sofa.fill", "lightbulb.fill", "hammer.fill",
+        "wrench.and.screwdriver.fill",
+        // Transportation & travel
+        "car.fill", "fuelpump.fill", "bus.fill", "tram.fill", "bicycle",
+        "parkingsign.circle.fill", "airplane", "suitcase.fill", "beach.umbrella.fill", "globe",
+        // Health & fitness
+        "cross.case.fill", "heart.fill", "pills.fill", "stethoscope", "figure.walk",
+        "figure.strengthtraining.traditional", "dumbbell.fill", "sportscourt.fill",
+        // Entertainment & subscriptions
+        "tv.fill", "gamecontroller.fill", "film.fill", "music.note", "theatermasks.fill",
+        "repeat.circle.fill",
+        // Finance & bills
+        "creditcard.fill", "banknote.fill", "dollarsign.circle.fill", "chart.pie.fill",
+        "building.columns.fill", "doc.text.fill", "shield.fill", "bolt.fill", "flame.fill",
+        "drop.fill", "wifi", "phone.fill",
+        // Family, pets & education
+        "pawprint.fill", "teddybear.fill", "graduationcap.fill", "book.fill", "pencil",
+        // Work & other
+        "briefcase.fill", "gift.fill", "scissors",
+    ]
+
+    /// A varied pool of candidate colors to draw a non-colliding default from; falls back to a random hue if every candidate is already in use.
+    private static let colorPalette: [String] = [
+        "#0D7377", "#4CAF50", "#FF7043", "#FFA726", "#42A5F5", "#AB47BC",
+        "#EC407A", "#26A69A", "#8D6E63", "#7E57C2", "#5C6BC0", "#29B6F6",
+        "#66BB6A", "#FFCA28", "#EF5350"
+    ]
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     TextField("Name", text: $name)
-                    Picker("Type", selection: $type) {
-                        Text("Spending").tag(CategoryType.spending)
-                        Text("Bill").tag(CategoryType.bill)
-                    }
                 } header: {
                     Text("Details")
                 }
@@ -161,12 +186,22 @@ private struct CategoryEditView: View {
     }
 
     private func load() {
-        guard let category else { return }
+        guard let category else {
+            colorHex = defaultUnusedColor()
+            return
+        }
         name = category.name
         icon = category.icon
         colorHex = category.colorHex
-        type = category.type
         includeInOverview = category.includeInOverview
+    }
+
+    private func defaultUnusedColor() -> String {
+        let usedHexes = Set(existingCategories.map { $0.colorHex.uppercased() })
+        if let unused = Self.colorPalette.first(where: { !usedHexes.contains($0.uppercased()) }) {
+            return unused
+        }
+        return String(format: "#%06X", Int.random(in: 0...0xFFFFFF))
     }
 
     private func save() {
@@ -174,11 +209,10 @@ private struct CategoryEditView: View {
             category.name = name
             category.icon = icon
             category.colorHex = colorHex
-            category.type = type
             category.includeInOverview = includeInOverview
         } else {
             let sortOrder = (existingCategories.map(\.sortOrder).max() ?? -1) + 1
-            let newCategory = Category(name: name, icon: icon, colorHex: colorHex, type: type, sortOrder: sortOrder)
+            let newCategory = Category(name: name, icon: icon, colorHex: colorHex, sortOrder: sortOrder)
             newCategory.includeInOverview = includeInOverview
             modelContext.insert(newCategory)
         }

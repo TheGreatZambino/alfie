@@ -3,6 +3,7 @@ import SwiftData
 
 struct WorkoutCalendarView: View {
     @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
+    @Query private var workoutGoals: [WorkoutGoals]
     @ObservedObject private var health = HealthKitManager.shared
 
     @State private var displayedMonth = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
@@ -129,6 +130,14 @@ struct WorkoutCalendarView: View {
         monthSessions.reduce(0) { $0 + $1.prCount }
     }
 
+    private var hasStrengthGoal: Bool {
+        (workoutGoals.first?.weeklyStrengthGoal ?? 0) > 0
+    }
+
+    private var hasCardioGoal: Bool {
+        (workoutGoals.first?.weeklyCardioGoal ?? 0) > 0
+    }
+
     private var monthlySummary: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("MONTHLY SUMMARY")
@@ -137,14 +146,24 @@ struct WorkoutCalendarView: View {
 
             HStack(spacing: 10) {
                 SummaryTile(label: "Total workouts", value: "\(monthSessions.count + monthCardioWorkouts.count)")
-                SummaryTile(label: "Strength", value: "\(monthSessions.count)")
-                SummaryTile(label: "Cardio", value: "\(monthCardioWorkouts.count)")
+                if hasStrengthGoal {
+                    SummaryTile(label: "Strength", value: "\(monthSessions.count)")
+                }
+                if hasCardioGoal {
+                    SummaryTile(label: "Cardio", value: "\(monthCardioWorkouts.count)")
+                }
             }
 
-            HStack(spacing: 10) {
-                SummaryTile(label: "Strength min", value: "\(strengthMinutes)")
-                SummaryTile(label: "Cardio min", value: "\(cardioMinutes)")
-                SummaryTile(label: "Miles", value: String(format: "%.1f", cardioMiles))
+            if hasStrengthGoal || hasCardioGoal {
+                HStack(spacing: 10) {
+                    if hasStrengthGoal {
+                        SummaryTile(label: "Strength min", value: "\(strengthMinutes)")
+                    }
+                    if hasCardioGoal {
+                        SummaryTile(label: "Cardio min", value: "\(cardioMinutes)")
+                        SummaryTile(label: "Miles", value: String(format: "%.1f", cardioMiles))
+                    }
+                }
             }
 
             if prCount > 0 {

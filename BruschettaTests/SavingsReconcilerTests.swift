@@ -37,7 +37,7 @@ struct SavingsReconcilerTests {
     }
 
     @Test
-    func noOpWhenNoSavingsAccountNamedSavings() throws {
+    func nonCashAccountWithNoAllocationIsUntouchedButBaselined() throws {
         let context = try makeContext()
         let nextPayDate = biweeklyNextPayDate()
         let income = Income(amount: 1000, payCadence: .biweekly, nextPayDate: nextPayDate)
@@ -47,8 +47,44 @@ struct SavingsReconcilerTests {
 
         SavingsReconciler.reconcile(income: income, bills: [], transactions: [], savingsAccounts: [other], context: context)
 
+        // No allocation set, so balance doesn't move, but the account is now baselined
+        // so a future call doesn't try to backfill from the beginning of time.
         #expect(other.balance == 200)
-        #expect(other.lastReconciledPeriodEnd == nil)
+        #expect(other.lastReconciledPeriodEnd == previousPeriod(nextPayDate: nextPayDate).end)
+    }
+
+    @Test
+    func accruesAllocationForNonCashAccountOnFirstReconcile() throws {
+        let context = try makeContext()
+        let nextPayDate = biweeklyNextPayDate()
+        let period = previousPeriod(nextPayDate: nextPayDate)
+        let income = Income(amount: 1000, payCadence: .biweekly, nextPayDate: nextPayDate)
+        let investments = SavingsAccount(name: "Investments", balance: 1000, allocationPerPaycheck: 150)
+        context.insert(income)
+        context.insert(investments)
+
+        SavingsReconciler.reconcile(income: income, bills: [], transactions: [], savingsAccounts: [investments], context: context)
+
+        #expect(investments.balance == 1150)
+        #expect(investments.lastReconciledPeriodEnd == period.end)
+    }
+
+    @Test
+    func catchesUpMultipleMissedPeriodsForNonCashAccount() throws {
+        let context = try makeContext()
+        let nextPayDate = biweeklyNextPayDate()
+        let periods = PayPeriodCalculator.previousPayPeriods(nextPayDate: nextPayDate, cadence: .biweekly, count: 3)
+        let income = Income(amount: 1000, payCadence: .biweekly, nextPayDate: nextPayDate)
+        // Already reconciled through the oldest of the three closed periods.
+        let investments = SavingsAccount(name: "Investments", balance: 1000, allocationPerPaycheck: 150, lastReconciledPeriodEnd: periods[0].end)
+        context.insert(income)
+        context.insert(investments)
+
+        SavingsReconciler.reconcile(income: income, bills: [], transactions: [], savingsAccounts: [investments], context: context)
+
+        // Two more periods have closed since the last reconcile: periods[1] and periods[2].
+        #expect(investments.balance == 1300)
+        #expect(investments.lastReconciledPeriodEnd == periods[2].end)
     }
 
     @Test

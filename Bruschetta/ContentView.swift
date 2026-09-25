@@ -121,13 +121,8 @@ struct ContentView: View {
     private func seedCategoriesIfNeeded() {
         guard categories.isEmpty else { return }
         var sortOrder = 0
-        for seed in Category.defaultSpendingCategories {
-            let category = Category(name: seed.name, icon: seed.icon, colorHex: seed.colorHex, type: .spending, sortOrder: sortOrder)
-            modelContext.insert(category)
-            sortOrder += 1
-        }
-        for seed in Category.defaultBillCategories {
-            let category = Category(name: seed.name, icon: seed.icon, colorHex: seed.colorHex, type: .bill, sortOrder: sortOrder)
+        for seed in Category.defaultCategories {
+            let category = Category(name: seed.name, icon: seed.icon, colorHex: seed.colorHex, sortOrder: sortOrder)
             modelContext.insert(category)
             sortOrder += 1
         }

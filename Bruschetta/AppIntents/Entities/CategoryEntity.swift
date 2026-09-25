@@ -1,7 +1,7 @@
 import AppIntents
 import SwiftData
 
-/// Siri-visible wrapper around a spending `Category`, so users can refer to categories
+/// Siri-visible wrapper around a `Category`, so users can refer to categories
 /// by name ("log this to Groceries") instead of only by app-specific IDs.
 struct CategoryEntity: AppEntity {
     /// Base64-encoded `PersistentIdentifier` — see `PersistentIdentifier.appEntityID`.
@@ -30,22 +30,18 @@ struct CategoryEntityQuery: EntityStringQuery {
 
     @MainActor
     func entities(matching string: String) async throws -> [CategoryEntity] {
-        try await spendingCategories().filter { $0.name.localizedCaseInsensitiveContains(string) }
+        try await allCategories().filter { $0.name.localizedCaseInsensitiveContains(string) }
     }
 
     @MainActor
     func suggestedEntities() async throws -> [CategoryEntity] {
-        try await spendingCategories()
+        try await allCategories()
     }
 
     @MainActor
-    private func spendingCategories() async throws -> [CategoryEntity] {
+    private func allCategories() async throws -> [CategoryEntity] {
         let context = ModelContext(AppModelContainer.shared)
-        let spending = CategoryType.spending.rawValue
-        let descriptor = FetchDescriptor<Category>(
-            predicate: #Predicate { $0.typeRaw == spending },
-            sortBy: [SortDescriptor(\.sortOrder)]
-        )
+        let descriptor = FetchDescriptor<Category>(sortBy: [SortDescriptor(\.sortOrder)])
         let categories = try context.fetch(descriptor)
         return categories.map { CategoryEntity(id: $0.persistentModelID.appEntityID, name: $0.name, icon: $0.icon) }
     }
