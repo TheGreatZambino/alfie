@@ -3,10 +3,19 @@ import SwiftData
 import StoreKit
 import UIKit
 
+enum SettingsDestination: Hashable {
+    case savings
+}
+
 struct SettingsView: View {
+    var initialDestination: SettingsDestination? = nil
+
     @EnvironmentObject private var authManager: AuthManager
     @ObservedObject private var health = HealthKitManager.shared
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @State private var path = NavigationPath()
+    @State private var showDeleteAllConfirmation = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @AppStorage(TrackedModule.storageKey) private var trackedModulesRaw = TrackedModule.defaultRawValue
     @ObservedObject private var subscriptions = SubscriptionManager.shared
@@ -14,6 +23,8 @@ struct SettingsView: View {
     @State private var showPaywall = false
     @State private var showManageSubscriptions = false
     @State private var showHealthGuidance = false
+    @State private var exportedFileURLs: [URL] = []
+    @State private var showExportShareSheet = false
 
     @Query private var incomes: [Income]
     @Query private var bills: [Bill]
@@ -21,12 +32,16 @@ struct SettingsView: View {
     @Query private var workoutGoals: [WorkoutGoals]
     @Query private var nutritionGoals: [NutritionGoals]
     @Query private var categories: [Category]
+    @Query private var transactions: [Transaction]
+    @Query private var workoutSessions: [WorkoutSession]
+    @Query private var nutritionEntries: [NutritionEntry]
+    @Query private var waterEntries: [WaterEntry]
 
     private var income: Income? { incomes.first }
     private var activeBills: [Bill] { bills.filter(\.isActive) }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 12) {
                     settingsGroup(label: "MONEY") {
@@ -39,7 +54,7 @@ struct SettingsView: View {
                         }
                         Divider().overlay(Color.hairline).padding(.leading, 60)
                         NavigationLink { SavingsAccountsSettingsView() } label: {
-                            settingsRow(icon: "banknote.fill", tint: .money, title: "Savings & investments", subtitle: "\(savingsAccounts.count) account\(savingsAccounts.count == 1 ? "" : "s")")
+                            settingsRow(icon: "banknote.fill", tint: .money, title: "Savings & investments", subtitle: savingsSubtitle)
                         }
                         Divider().overlay(Color.hairline).padding(.leading, 60)
                         NavigationLink { CategoriesSettingsView() } label: {
@@ -112,9 +127,9 @@ struct SettingsView: View {
                             Toggle("", isOn: $authManager.isAppLockEnabled)
                                 .labelsHidden()
                                 .tint(.money)
+                                .padding(.trailing, 16)
                         }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 16)
+                        .padding(.vertical, 2)
 
                         Divider().overlay(Color.hairline).padding(.leading, 60)
 
@@ -122,22 +137,26 @@ struct SettingsView: View {
                             settingsRow(icon: "circle.lefthalf.filled", tint: .ink, title: "Appearance", subtitle: nil, showChevron: false)
                             Spacer()
                             AppearancePicker(selection: $appearanceMode)
+                                .padding(.trailing, 16)
                         }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 16)
+                        .padding(.vertical, 2)
 
                         Divider().overlay(Color.hairline).padding(.leading, 60)
 
                         Button { showTour = true } label: {
-                            HStack {
-                                settingsRow(icon: "questionmark.circle.fill", tint: .ink, title: "How to use Alfie Track", subtitle: nil, showChevron: false)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Color.inkQuaternary)
-                            }
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 16)
+                            settingsRow(icon: "questionmark.circle.fill", tint: .ink, title: "How to use Alfie Track", subtitle: nil)
+                        }
+
+                        Divider().overlay(Color.hairline).padding(.leading, 60)
+
+                        Button { exportData() } label: {
+                            settingsRow(icon: "square.and.arrow.up", tint: .ink, title: "Download my data", subtitle: "Export as CSV")
+                        }
+
+                        Divider().overlay(Color.hairline).padding(.leading, 60)
+
+                        Button { showDeleteAllConfirmation = true } label: {
+                            settingsRow(icon: "trash.fill", tint: .training, title: "Delete all data and start over", subtitle: nil)
                         }
                     }
 
@@ -170,6 +189,17 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .navigationDestination(for: SettingsDestination.self) { destination in
+                switch destination {
+                case .savings:
+                    SavingsAccountsSettingsView()
+                }
+            }
+        }
+        .onAppear {
+            if let initialDestination, path.isEmpty {
+                path.append(initialDestination)
+            }
         }
         .preferredColorScheme(appearanceMode.colorScheme)
         .sheet(isPresented: $showTour) {
@@ -179,11 +209,20 @@ struct SettingsView: View {
             RemoveAdsPaywallView()
         }
         .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
+        .sheet(isPresented: $showExportShareSheet) {
+            ActivityShareSheet(items: exportedFileURLs)
+        }
         .alert("Apple Health", isPresented: $showHealthGuidance) {
             Button("Open Health App") { openHealthApp() }
             Button("OK", role: .cancel) {}
         } message: {
             Text(health.errorMessage ?? "To grant or review access, open the Health app, tap your profile icon, then Apps, and find Alfie Track.")
+        }
+        .alert("Are you sure?", isPresented: $showDeleteAllConfirmation) {
+            Button("Delete Everything", role: .destructive) { deleteAllDataAndSignOut() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be reversed. All of your data will be permanently deleted and you'll be signed out.")
         }
     }
 
@@ -270,6 +309,25 @@ struct SettingsView: View {
         UIApplication.shared.open(url)
     }
 
+    private func exportData() {
+        exportedFileURLs = DataExportService.exportAll(
+            transactions: transactions,
+            bills: bills,
+            income: income,
+            savingsAccounts: savingsAccounts,
+            workoutSessions: workoutSessions,
+            nutritionEntries: nutritionEntries,
+            waterEntries: waterEntries
+        )
+        guard !exportedFileURLs.isEmpty else { return }
+        showExportShareSheet = true
+    }
+
+    private func deleteAllDataAndSignOut() {
+        DataResetService.resetAllData(modelContext: modelContext)
+        authManager.signOut()
+    }
+
     private func openHealthApp() {
         if let url = URL(string: "x-apple-health://"), UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
@@ -323,10 +381,15 @@ struct SettingsView: View {
         return "\(activeBills.count) bill\(activeBills.count == 1 ? "" : "s") · \(total.formatted(.currency(code: "USD").precision(.fractionLength(0)))) a month"
     }
 
+    private var savingsSubtitle: String {
+        guard !savingsAccounts.isEmpty else { return "No accounts yet" }
+        let total = savingsAccounts.reduce(0) { $0 + $1.allocationPerPaycheck }
+        return "\(savingsAccounts.count) account\(savingsAccounts.count == 1 ? "" : "s") · \(total.formatted(.currency(code: "USD").precision(.fractionLength(0))))/paycheck"
+    }
+
     private var categoriesSubtitle: String {
-        let spending = categories.filter { $0.type == .spending }.count
-        let bill = categories.filter { $0.type == .bill }.count
-        return "\(spending) spending · \(bill) bill"
+        guard !categories.isEmpty else { return "No categories yet" }
+        return "\(categories.count) categor\(categories.count == 1 ? "y" : "ies")"
     }
 
     private var workoutGoalsSubtitle: String {

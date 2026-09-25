@@ -65,7 +65,7 @@ enum TourPage: Hashable {
         case .overview:
             return [
                 "See a weekly score for every pillar you're tracking, at a glance",
-                "Tap any row — Money, Training, Food — to jump straight into that tab",
+                "Tap any row — Finances, Workouts, Nutrition — to jump straight into that tab",
                 "The gear icon in the corner opens Settings, including which pillars you track",
             ]
         case .finance:
@@ -91,6 +91,7 @@ enum TourPage: Hashable {
                 "Every transaction, workout, and meal you log is stored locally on your device — not on a server we run",
                 "We're never able to see your amounts, exercises, or what you ate",
                 "We only track anonymous usage counts, like how many people log a transaction or finish a workout, so we know which features are worth improving",
+                "If you see ads, Google may use a device identifier to personalize them — it's never linked to your identity, account, or anything you log in Alfie Track",
             ]
         }
     }
@@ -99,6 +100,8 @@ enum TourPage: Hashable {
 /// Small call-to-action shown at the end of the tour — in first-run onboarding and the
 /// standalone replay from Settings — pointing new users toward Alfie Plus.
 struct SupportAlfieSection: View {
+    var isOnboarding: Bool = false
+
     @State private var showPaywall = false
 
     var body: some View {
@@ -107,7 +110,7 @@ struct SupportAlfieSection: View {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.training)
-                Text("Enjoying Alfie Track?")
+                Text(isOnboarding ? "Want to support Alfie Track?" : "Enjoying Alfie Track?")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.ink)
             }

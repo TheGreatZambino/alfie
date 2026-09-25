@@ -7,6 +7,7 @@ struct TrendsView: View {
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
 
     @State private var mode: TrendsMode = .payPeriod
+    @State private var rangeFilter: TrendsRangeFilter = .allTime
     @State private var showAddTransaction = false
 
     private var income: Income? { incomes.first }
@@ -26,7 +27,7 @@ struct TrendsView: View {
                     let periods = buildPeriods(income: income)
                     let data = buildData(periods: periods)
 
-                    SpendingTrendChart(data: data, mode: mode)
+                    SpendingTrendChart(data: data, mode: mode, rangeFilter: $rangeFilter)
                         .padding(.horizontal)
 
                     if !categoryTotals.isEmpty {
@@ -65,17 +66,21 @@ struct TrendsView: View {
     }
 
     private func buildPeriods(income: Income) -> [PayPeriod] {
+        let all: [PayPeriod]
         switch mode {
         case .payPeriod:
             let current = PayPeriodCalculator.currentPayPeriod(nextPayDate: income.nextPayDate, cadence: income.cadence)
             // Generate enough history to cover all transactions, capped at 24 periods
             let past = PayPeriodCalculator.previousPayPeriods(nextPayDate: income.nextPayDate, cadence: income.cadence, count: 24)
-            let all = past + [current]
-            return filterToRelevant(all)
+            all = past + [current]
         case .monthly:
-            let all = PayPeriodCalculator.calendarMonths(count: 24)
-            return filterToRelevant(all)
+            all = PayPeriodCalculator.calendarMonths(count: 24)
         }
+
+        if let range = rangeFilter.dateInterval {
+            return all.filter { $0.end >= range.start && $0.start <= range.end }
+        }
+        return filterToRelevant(all)
     }
 
     /// Keeps only periods that contain at least one transaction, plus the current period
@@ -144,6 +149,63 @@ enum TrendsMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum TrendsRangeFilter: String, CaseIterable, Identifiable {
+    case allTime, thisWeek, lastWeek, thisMonth, lastMonth, thisQuarter, lastQuarter, thisYear
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .allTime:      return "All Time"
+        case .thisWeek:     return "This Week"
+        case .lastWeek:     return "Last Week"
+        case .thisMonth:    return "This Month"
+        case .lastMonth:    return "Last Month"
+        case .thisQuarter:  return "This Quarter"
+        case .lastQuarter:  return "Last Quarter"
+        case .thisYear:     return "This Year"
+        }
+    }
+
+    /// The calendar range this filter represents, or `nil` for "All Time" (no filtering).
+    var dateInterval: DateInterval? {
+        let calendar = Calendar.current
+        let now = Date()
+        switch self {
+        case .allTime:
+            return nil
+        case .thisWeek:
+            return calendar.dateInterval(of: .weekOfYear, for: now)
+        case .lastWeek:
+            guard let date = calendar.date(byAdding: .weekOfYear, value: -1, to: now) else { return nil }
+            return calendar.dateInterval(of: .weekOfYear, for: date)
+        case .thisMonth:
+            return calendar.dateInterval(of: .month, for: now)
+        case .lastMonth:
+            guard let date = calendar.date(byAdding: .month, value: -1, to: now) else { return nil }
+            return calendar.dateInterval(of: .month, for: date)
+        case .thisQuarter:
+            return Self.quarterInterval(containing: now, calendar: calendar)
+        case .lastQuarter:
+            guard let date = calendar.date(byAdding: .month, value: -3, to: now) else { return nil }
+            return Self.quarterInterval(containing: date, calendar: calendar)
+        case .thisYear:
+            return calendar.dateInterval(of: .year, for: now)
+        }
+    }
+
+    private static func quarterInterval(containing date: Date, calendar: Calendar) -> DateInterval {
+        let components = calendar.dateComponents([.year, .month], from: date)
+        guard let year = components.year, let month = components.month else {
+            return DateInterval(start: date, end: date)
+        }
+        let quarterStartMonth = ((month - 1) / 3) * 3 + 1
+        let start = calendar.date(from: DateComponents(year: year, month: quarterStartMonth, day: 1)) ?? date
+        let end = calendar.date(byAdding: .month, value: 3, to: start) ?? date
+        return DateInterval(start: start, end: end)
+    }
+}
+
 struct SpendingBucket: Identifiable {
     let id = UUID()
     let period: PayPeriod
@@ -162,11 +224,37 @@ struct CategorySlice: Identifiable {
 private struct SpendingTrendChart: View {
     let data: [SpendingBucket]
     let mode: TrendsMode
+    @Binding var rangeFilter: TrendsRangeFilter
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Spending Over Time", systemImage: "chart.bar.fill")
-                .font(.headline)
+            HStack {
+                Label("Spending Over Time", systemImage: "chart.bar.fill")
+                    .font(.headline)
+
+                Spacer()
+
+                Menu {
+                    ForEach(TrendsRangeFilter.allCases) { filter in
+                        Button {
+                            rangeFilter = filter
+                        } label: {
+                            if filter == rangeFilter {
+                                Label(filter.label, systemImage: "checkmark")
+                            } else {
+                                Text(filter.label)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(rangeFilter.label)
+                        Image(systemName: "chevron.down")
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.money)
+                }
+            }
 
             Chart(data) { bucket in
                 BarMark(

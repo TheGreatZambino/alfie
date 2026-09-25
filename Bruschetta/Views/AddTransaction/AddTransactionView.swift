@@ -4,7 +4,7 @@ import SwiftData
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(filter: #Predicate<Category> { $0.typeRaw == "spending" }, sort: \Category.name)
+    @Query(sort: \Category.name)
     private var categories: [Category]
     @Query private var allTransactions: [Transaction]
 
@@ -26,6 +26,7 @@ struct AddTransactionView: View {
     @State private var showDatePicker: Bool = false
     @State private var showReceiptSheet: Bool = false
     @State private var receiptImageData: Data?
+    @State private var showDeleteConfirmation = false
     @FocusState private var noteFieldFocused: Bool
 
     var body: some View {
@@ -71,6 +72,12 @@ struct AddTransactionView: View {
                     }
                 }
             }
+            .confirmationDialog("Delete this expense?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete Expense", role: .destructive) { delete() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This can't be undone.")
+            }
         }
     }
 
@@ -102,7 +109,22 @@ struct AddTransactionView: View {
 
             Spacer()
 
-            Color.clear.frame(width: 36, height: 36)
+            if editingTransaction != nil {
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    Circle()
+                        .fill(Color.fill)
+                        .overlay(
+                            Image(systemName: "trash")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.red)
+                        )
+                        .frame(width: 36, height: 36)
+                }
+            } else {
+                Color.clear.frame(width: 36, height: 36)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -321,6 +343,14 @@ struct AddTransactionView: View {
             AnalyticsService.transactionLogged()
         }
 
+        try? modelContext.save()
+        onSave?()
+        dismiss()
+    }
+
+    private func delete() {
+        guard let editingTransaction else { return }
+        modelContext.delete(editingTransaction)
         try? modelContext.save()
         onSave?()
         dismiss()

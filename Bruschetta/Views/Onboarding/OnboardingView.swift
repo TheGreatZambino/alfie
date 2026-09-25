@@ -52,57 +52,58 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 progressBar
 
-                VStack(alignment: .leading, spacing: 24) {
-                    switch currentPhase {
-                    case .setup(.modules):
-                        stepView(
-                            eyebrow: stepEyebrow,
-                            headline: "What do you want to track?",
-                            body: "Pick as many as you like — you can always change this later in Settings."
-                        ) {
-                            moduleChips
-                        }
-                    case .setup(.incomeAmount):
-                        stepView(
-                            eyebrow: stepEyebrow,
-                            headline: "What do you take home each pay period?",
-                            body: "Everything else — bills, savings, what's left to spend — is worked out from this."
-                        ) {
-                            amountInputCard
-                        }
-                    case .setup(.cadence):
-                        stepView(
-                            eyebrow: stepEyebrow,
-                            headline: "How often are you paid?",
-                            body: "This sets the rhythm for your budget periods and bill allocations."
-                        ) {
-                            cadenceChips
-                        }
-                    case .setup(.payday):
-                        stepView(
-                            eyebrow: stepEyebrow,
-                            headline: "When's your next payday?",
-                            body: "I'll count down to it and reset your period balance when it arrives."
-                        ) {
-                            VStack {
-                                DatePicker("Next pay date", selection: $nextPayDate, displayedComponents: .date)
-                                    .datePickerStyle(.graphical)
-                                    .tint(.money)
-                                    .frame(height: 340)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        switch currentPhase {
+                        case .setup(.modules):
+                            stepView(
+                                eyebrow: stepEyebrow,
+                                headline: "What do you want to track?",
+                                body: "Pick as many as you like — you can always change this later in Settings."
+                            ) {
+                                moduleChips
                             }
-                            .cardStyle()
-                        }
-                    case .tour(let page):
-                        TourPageView(page: page)
-                        if isLastStep {
-                            SupportAlfieSection()
+                        case .setup(.incomeAmount):
+                            stepView(
+                                eyebrow: stepEyebrow,
+                                headline: "What do you take home each pay period?",
+                                body: "Everything else — bills, savings, what's left to spend — is worked out from this."
+                            ) {
+                                amountInputCard
+                            }
+                        case .setup(.cadence):
+                            stepView(
+                                eyebrow: stepEyebrow,
+                                headline: "How often are you paid?",
+                                body: "This sets the rhythm for your budget periods and bill allocations."
+                            ) {
+                                cadenceChips
+                            }
+                        case .setup(.payday):
+                            stepView(
+                                eyebrow: stepEyebrow,
+                                headline: "When's your next payday?",
+                                body: "I'll count down to it and reset your period balance when it arrives."
+                            ) {
+                                VStack {
+                                    DatePicker("Next pay date", selection: $nextPayDate, displayedComponents: .date)
+                                        .datePickerStyle(.graphical)
+                                        .tint(.money)
+                                        .frame(height: 340)
+                                }
+                                .cardStyle()
+                            }
+                        case .tour(let page):
+                            TourPageView(page: page)
+                            if isLastStep {
+                                SupportAlfieSection(isOnboarding: true)
+                            }
                         }
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 36)
+                    .padding(.bottom, 16)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 36)
-
-                Spacer()
 
                 footer
             }
@@ -284,13 +285,8 @@ struct OnboardingView: View {
 
         if categories.isEmpty {
             var sortOrder = 0
-            for seed in Category.defaultSpendingCategories {
-                let category = Category(name: seed.name, icon: seed.icon, colorHex: seed.colorHex, type: .spending, sortOrder: sortOrder)
-                modelContext.insert(category)
-                sortOrder += 1
-            }
-            for seed in Category.defaultBillCategories {
-                let category = Category(name: seed.name, icon: seed.icon, colorHex: seed.colorHex, type: .bill, sortOrder: sortOrder)
+            for seed in Category.defaultCategories {
+                let category = Category(name: seed.name, icon: seed.icon, colorHex: seed.colorHex, sortOrder: sortOrder)
                 modelContext.insert(category)
                 sortOrder += 1
             }

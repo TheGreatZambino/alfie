@@ -11,7 +11,7 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
 
     var displayName: String {
         switch self {
-        case .finance: return "Finance"
+        case .finance: return "Finances"
         case .workouts: return "Workouts"
         case .nutrition: return "Nutrition"
         }
@@ -47,9 +47,9 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
             ]
         case .nutrition:
             return [
-                ReminderSlot(secondsFromMidnight: 10 * 3600, title: "Stay hydrated", body: "Log your water intake and remember to drink up today."),
-                ReminderSlot(secondsFromMidnight: 14 * 3600, title: "Stay hydrated", body: "How's your water intake looking? Log it and keep drinking."),
-                ReminderSlot(secondsFromMidnight: 18 * 3600, title: "Stay hydrated", body: "Log today's water intake — and don't forget to drink more.")
+                ReminderSlot(secondsFromMidnight: 10 * 3600, title: "Stay hydrated", body: "Log your water intake and remember to hydrate today."),
+                ReminderSlot(secondsFromMidnight: 14 * 3600, title: "Stay hydrated", body: "How's your water intake looking? Log it and keep hydrating."),
+                ReminderSlot(secondsFromMidnight: 18 * 3600, title: "Stay hydrated", body: "Log today's water intake — and don't forget to drink more water.")
             ]
         }
     }

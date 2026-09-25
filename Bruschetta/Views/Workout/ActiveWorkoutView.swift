@@ -397,7 +397,7 @@ private struct ActiveSetRow: View {
             } else {
                 HStack(spacing: 4) {
                     DurationField(totalSeconds: $set.durationSeconds)
-                    Text("min")
+                    Text("min:sec")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

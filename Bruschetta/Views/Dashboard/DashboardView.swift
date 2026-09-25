@@ -10,8 +10,7 @@ struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showAddTransaction = false
     @State private var showSettings = false
-    @State private var didAddTransaction = false
-    @State private var navigateToTransactions = false
+    @State private var settingsDestination: SettingsDestination?
 
     private var income: Income? { incomes.first }
 
@@ -22,12 +21,16 @@ struct DashboardView: View {
                     VStack(spacing: 14) {
                         header
 
-                        BalanceCard(viewModel: viewModel)
+                        BalanceCard(viewModel: viewModel) {
+                            openSavingsSettings()
+                        }
 
                         if !savingsAccounts.isEmpty {
                             HStack(spacing: 12) {
                                 ForEach(savingsAccounts) { account in
-                                    SavingsTile(account: account)
+                                    SavingsTile(account: account) {
+                                        openSavingsSettings()
+                                    }
                                 }
                             }
                         }
@@ -58,18 +61,13 @@ struct DashboardView: View {
             .background(Color.paper)
             .toolbar(.hidden, for: .navigationBar)
             .tint(.money)
-            .sheet(isPresented: $showAddTransaction, onDismiss: {
-                guard didAddTransaction else { return }
-                didAddTransaction = false
-                navigateToTransactions = true
+            .sheet(isPresented: $showAddTransaction) {
+                AddTransactionView(remaining: viewModel.remaining)
+            }
+            .sheet(isPresented: $showSettings, onDismiss: {
+                settingsDestination = nil
             }) {
-                AddTransactionView(remaining: viewModel.remaining, onSave: { didAddTransaction = true })
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            .navigationDestination(isPresented: $navigateToTransactions) {
-                TransactionListView()
+                SettingsView(initialDestination: settingsDestination)
             }
             .refreshable {
                 refresh()
@@ -96,11 +94,6 @@ struct DashboardView: View {
             Spacer()
 
             HStack(spacing: 10) {
-                NavigationLink {
-                    TransactionListView()
-                } label: {
-                    circleButton(systemName: "list.bullet")
-                }
                 NavigationLink {
                     TrendsView()
                 } label: {
@@ -130,6 +123,11 @@ struct DashboardView: View {
             .frame(width: 36, height: 36)
     }
 
+    private func openSavingsSettings() {
+        settingsDestination = .savings
+        showSettings = true
+    }
+
     private func refresh() {
         viewModel.refresh(income: income, bills: bills, transactions: transactions, savingsAccounts: savingsAccounts)
     }
@@ -139,10 +137,11 @@ struct DashboardView: View {
 
 private struct BalanceCard: View {
     @ObservedObject var viewModel: DashboardViewModel
+    let onTapSavingsOrInvestments: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("LEFT THIS PERIOD")
+            Text("LEFT THIS PAY PERIOD")
                 .textCase(.uppercase)
                 .font(.system(size: 13, weight: .semibold))
                 .tracking(0.6)
@@ -161,7 +160,7 @@ private struct BalanceCard: View {
             )
 
             HStack(spacing: 14) {
-                legendItem(color: Color(hex: "#F2C94C"), label: "Committed")
+                legendItem(color: Color(hex: "#F2C94C"), label: "Committed", action: onTapSavingsOrInvestments)
                 legendItem(color: .white, label: "Spent")
                 legendItem(color: .white.opacity(0.22), label: "Left")
             }
@@ -173,14 +172,23 @@ private struct BalanceCard: View {
         .heroCardStyle(pillar: .moneyFill)
     }
 
-    private func legendItem(color: Color, label: String) -> some View {
-        HStack(spacing: 5) {
+    private func legendItem(color: Color, label: String, action: (() -> Void)? = nil) -> some View {
+        let content = HStack(spacing: 5) {
             Circle()
                 .fill(color)
                 .frame(width: 7, height: 7)
             Text(label)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.75))
+        }
+
+        return Group {
+            if let action {
+                Button(action: action) { content }
+                    .buttonStyle(.plain)
+            } else {
+                content
+            }
         }
     }
 
@@ -197,20 +205,24 @@ private struct BalanceCard: View {
 
 private struct SavingsTile: View {
     let account: SavingsAccount
+    let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(account.name)
-                .font(.system(size: 12))
-                .foregroundStyle(Color.inkTertiary)
-            Text(account.balance, format: .currency(code: "USD"))
-                .font(.cardNumeral)
-                .foregroundStyle(Color.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(account.name)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.inkTertiary)
+                Text(account.balance, format: .currency(code: "USD"))
+                    .font(.cardNumeral)
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardStyle(radius: 22)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle(radius: 22)
+        .buttonStyle(.plain)
     }
 }
 
@@ -226,7 +238,7 @@ private struct BillsThisPeriodCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("BILLS THIS PERIOD")
+                Text("BILLS THIS PAY PERIOD")
                     .sectionLabelStyle()
                 Spacer()
                 if !bills.isEmpty {

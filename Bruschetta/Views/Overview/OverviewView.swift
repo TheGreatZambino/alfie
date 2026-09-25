@@ -28,6 +28,20 @@ struct OverviewView: View {
 
     private var income: Income? { incomes.first }
 
+    // SwiftData @Model equality is identity-based, so editing an existing Transaction in
+    // place (see AddTransactionView.save()) doesn't change `transactions` itself. Watch a
+    // snapshot of the mutable fields so edits are picked up without a manual refresh.
+    private var transactionsSnapshot: [TransactionSnapshot] {
+        transactions.map {
+            TransactionSnapshot(
+                id: $0.persistentModelID,
+                amount: $0.amount,
+                date: $0.date,
+                categoryID: $0.category?.persistentModelID
+            )
+        }
+    }
+
     private var caloriesToday: Double {
         let calendar = Calendar.current
         return nutritionEntries
@@ -43,7 +57,7 @@ struct OverviewView: View {
         VStack(spacing: 14) {
             header
 
-            WeekTriadCard(viewModel: viewModel, trackedModules: trackedModules)
+            WeekTriadCard(viewModel: viewModel, trackedModules: trackedModules, selectedTab: $selectedTab)
 
             PillarRowsCard(viewModel: viewModel, caloriesToday: caloriesToday, daysToPayday: daysToPayday, trackedModules: trackedModules, selectedTab: $selectedTab)
         }
@@ -77,7 +91,7 @@ struct OverviewView: View {
     var body: some View {
         NavigationStack {
             screenBody
-                .modifier(RefreshOnChange(sessions: sessions, transactions: transactions, nutritionEntries: nutritionEntries, incomes: incomes, bills: bills, savingsAccounts: savingsAccounts, workoutGoals: workoutGoals, nutritionGoals: nutritionGoals, healthAuthorized: health.isAuthorized, refresh: refresh))
+                .modifier(RefreshOnChange(sessions: sessions, transactions: transactions, transactionsSnapshot: transactionsSnapshot, nutritionEntries: nutritionEntries, incomes: incomes, bills: bills, savingsAccounts: savingsAccounts, workoutGoals: workoutGoals, nutritionGoals: nutritionGoals, nutritionCalorieGoal: nutritionGoals.first?.calorieGoal, nutritionWaterGoal: nutritionGoals.first?.waterGoalOunces, nutritionWaterTrackingEnabled: nutritionGoals.first?.isWaterTrackingEnabled, healthAuthorized: health.isAuthorized, refresh: refresh))
         }
     }
 
@@ -189,15 +203,29 @@ struct OverviewView: View {
 
 /// Isolated into its own ViewModifier so the type checker doesn't have to solve one giant
 /// modifier-chain expression alongside the rest of OverviewView's body.
+private struct TransactionSnapshot: Equatable {
+    let id: PersistentIdentifier
+    let amount: Double
+    let date: Date
+    let categoryID: PersistentIdentifier?
+}
+
 private struct RefreshOnChange: ViewModifier {
     let sessions: [WorkoutSession]
     let transactions: [Transaction]
+    let transactionsSnapshot: [TransactionSnapshot]
     let nutritionEntries: [NutritionEntry]
     let incomes: [Income]
     let bills: [Bill]
     let savingsAccounts: [SavingsAccount]
     let workoutGoals: [WorkoutGoals]
     let nutritionGoals: [NutritionGoals]
+    // SwiftData @Model equality is identity-based, so editing an existing NutritionGoals
+    // row in place (see NutritionGoalsSettingsView.save()) doesn't change `nutritionGoals`
+    // itself. Watch the underlying values directly so edits are picked up without a manual refresh.
+    let nutritionCalorieGoal: Double?
+    let nutritionWaterGoal: Double?
+    let nutritionWaterTrackingEnabled: Bool?
     let healthAuthorized: Bool
     let refresh: () -> Void
 
@@ -205,12 +233,16 @@ private struct RefreshOnChange: ViewModifier {
         content
             .onChange(of: sessions) { _, _ in refresh() }
             .onChange(of: transactions) { _, _ in refresh() }
+            .onChange(of: transactionsSnapshot) { _, _ in refresh() }
             .onChange(of: nutritionEntries) { _, _ in refresh() }
             .onChange(of: incomes) { _, _ in refresh() }
             .onChange(of: bills) { _, _ in refresh() }
             .onChange(of: savingsAccounts) { _, _ in refresh() }
             .onChange(of: workoutGoals) { _, _ in refresh() }
             .onChange(of: nutritionGoals) { _, _ in refresh() }
+            .onChange(of: nutritionCalorieGoal) { _, _ in refresh() }
+            .onChange(of: nutritionWaterGoal) { _, _ in refresh() }
+            .onChange(of: nutritionWaterTrackingEnabled) { _, _ in refresh() }
             .onChange(of: healthAuthorized) { _, _ in refresh() }
     }
 }
@@ -220,6 +252,7 @@ private struct RefreshOnChange: ViewModifier {
 private struct WeekTriadCard: View {
     @ObservedObject var viewModel: OverviewViewModel
     let trackedModules: Set<TrackedModule>
+    @Binding var selectedTab: AppTab
 
     private var trackedScores: [Double] {
         var scores: [Double] = []
@@ -249,13 +282,19 @@ private struct WeekTriadCard: View {
 
             HStack(spacing: 8) {
                 if trackedModules.contains(.finance) {
-                    TriadColumn(pillar: .money, symbol: "wallet.bifold", progress: viewModel.expenseScore / 100, label: "Finances", status: statusText(viewModel.expenseScore))
+                    TriadColumn(pillar: .money, symbol: "wallet.bifold", progress: viewModel.expenseScore / 100, label: "Finances", status: statusText(viewModel.expenseScore)) {
+                        selectedTab = .finances
+                    }
                 }
                 if trackedModules.contains(.workouts) {
-                    TriadColumn(pillar: .training, symbol: "figure.strengthtraining.traditional", progress: viewModel.workoutScore / 100, label: "Workouts", status: statusText(viewModel.workoutScore))
+                    TriadColumn(pillar: .training, symbol: "figure.strengthtraining.traditional", progress: viewModel.workoutScore / 100, label: "Workouts", status: statusText(viewModel.workoutScore)) {
+                        selectedTab = .workouts
+                    }
                 }
                 if trackedModules.contains(.nutrition) {
-                    TriadColumn(pillar: .food, symbol: "fork.knife", progress: viewModel.calorieScore / 100, label: "Nutrition", status: statusText(viewModel.calorieScore))
+                    TriadColumn(pillar: .food, symbol: "fork.knife", progress: viewModel.calorieScore / 100, label: "Nutrition", status: statusText(viewModel.calorieScore)) {
+                        selectedTab = .nutrition
+                    }
                 }
             }
         }
@@ -277,22 +316,27 @@ private struct TriadColumn: View {
     let progress: Double
     let label: String
     let status: String
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
-            RingGauge(progress: progress, color: pillar, lineWidth: 6, size: 66) {
-                Image(systemName: symbol)
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(pillar)
+        Button(action: action) {
+            VStack(spacing: 8) {
+                RingGauge(progress: progress, color: pillar, lineWidth: 6, size: 66) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(pillar)
+                }
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                Text(status)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.inkTertiary)
             }
-            Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.ink)
-            Text(status)
-                .font(.system(size: 12))
-                .foregroundStyle(Color.inkTertiary)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
     }
 }
 
@@ -314,13 +358,7 @@ private struct PillarRowsCard: View {
                     heroValue: viewModel.remainingThisPeriod.formatted(.currency(code: "USD").precision(.fractionLength(0))),
                     supporting: "left · \(daysToPaydayText)"
                 ) {
-                    SegmentedBar(
-                        segments: [
-                            .init(fraction: committedFraction, color: Color(hex: "#F2C94C")),
-                            .init(fraction: spentFraction, color: .money),
-                        ],
-                        trackColor: .moneyTint
-                    )
+                    SegmentedBar(segments: [.init(fraction: moneyFraction, color: .money)], trackColor: .moneyTint)
                 } action: {
                     selectedTab = .finances
                 }
@@ -339,8 +377,15 @@ private struct PillarRowsCard: View {
                     visualHeight: nil
                 ) {
                     VStack(alignment: .leading, spacing: 10) {
-                        WeekTypeRow(label: "STRENGTH", days: viewModel.weekdayCompletion, icon: "figure.strengthtraining.traditional") { $0.hasStrength }
-                        WeekTypeRow(label: "CARDIO", days: viewModel.weekdayCompletion, icon: "figure.walk") { $0.hasCardio }
+                        if !viewModel.weekdayCompletion.isEmpty {
+                            WeekdayLabelRow(days: viewModel.weekdayCompletion)
+                        }
+                        if viewModel.strengthGoal > 0 {
+                            WeekTypeRow(label: "STRENGTH", days: viewModel.weekdayCompletion, icon: "figure.strengthtraining.traditional") { $0.hasStrength }
+                        }
+                        if viewModel.cardioGoal > 0 {
+                            WeekTypeRow(label: "CARDIO", days: viewModel.weekdayCompletion, icon: "figure.walk") { $0.hasCardio }
+                        }
                     }
                 } action: {
                     selectedTab = .workouts
@@ -356,7 +401,8 @@ private struct PillarRowsCard: View {
                     pillar: .food,
                     label: "NUTRITION",
                     heroValue: "\(max(Int(viewModel.calorieGoal - caloriesToday), 0).formatted())",
-                    supporting: "left today · \(viewModel.goodCalorieDays) of 7 on target"
+                    supporting: "left today · \(viewModel.goodCalorieDays) of 7 on target",
+                    bottomPadding: 4
                 ) {
                     SegmentedBar(segments: [.init(fraction: foodFraction, color: .food)], trackColor: .foodTint)
                 } action: {
@@ -377,12 +423,10 @@ private struct PillarRowsCard: View {
         return "\(daysToPayday) days to payday"
     }
 
-    private var moneyTotal: Double { max(viewModel.incomeThisPeriod, 1) }
-    private var committedFraction: Double {
-        (viewModel.billsAllocationThisPeriod + viewModel.savingsAllocationThisPeriod) / moneyTotal
-    }
-    private var spentFraction: Double {
-        viewModel.spendingThisPeriod / moneyTotal
+    private var moneyFraction: Double {
+        let total = max(viewModel.incomeThisPeriod, 1)
+        let committed = viewModel.billsAllocationThisPeriod + viewModel.savingsAllocationThisPeriod + viewModel.spendingThisPeriod
+        return min(1, max(committed / total, 0))
     }
 }
 
@@ -392,6 +436,7 @@ private struct PillarRow<Visual: View>: View {
     let heroValue: String
     let supporting: String
     var visualHeight: CGFloat? = 8
+    var bottomPadding: CGFloat = 10
     @ViewBuilder var visual: () -> Visual
     let action: () -> Void
 
@@ -424,9 +469,27 @@ private struct PillarRow<Visual: View>: View {
                     visual()
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.top, 10)
+            .padding(.bottom, bottomPadding)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct WeekdayLabelRow: View {
+    let days: [DayCompletion]
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(days) { day in
+                Text(day.date.formatted(.dateTime.weekday(.abbreviated)))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Color.inkQuaternary)
+                    .frame(maxWidth: .infinity)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
     }
 }
 
