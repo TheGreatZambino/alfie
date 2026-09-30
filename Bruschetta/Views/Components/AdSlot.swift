@@ -4,6 +4,7 @@ import SwiftUI
 /// user holds the Alfie Plus subscription — Finances/Overview never call this.
 struct AdSlot: View {
     @ObservedObject private var subscriptions = SubscriptionManager.shared
+    @ObservedObject private var ads = GoogleMobileAdsInitializer.shared
     @State private var showPaywall = false
 
     var body: some View {
@@ -18,8 +19,13 @@ struct AdSlot: View {
                 }
                 .buttonStyle(.plain)
 
-                BannerAdView()
-                    .frame(height: BannerAdViewController.approximateHeight)
+                // No ad request until the ATT prompt has been answered.
+                if ads.isReady {
+                    BannerAdView()
+                        .frame(height: BannerAdViewController.approximateHeight)
+                } else {
+                    Color.clear.frame(height: BannerAdViewController.approximateHeight)
+                }
             }
             .padding(.top, 4)
             .padding(.bottom, 2)

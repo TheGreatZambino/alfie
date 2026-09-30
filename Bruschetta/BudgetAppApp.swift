@@ -30,19 +30,23 @@ struct BudgetAppApp: App {
     init() {
         AnalyticsService.configure()
         _ = SubscriptionManager.shared
-        GoogleMobileAdsInitializer.start()
     }
 
     var sharedModelContainer: ModelContainer = AppModelContainer.shared
 
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @StateObject private var authManager = AuthManager()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(appearanceMode.colorScheme)
                 .environmentObject(authManager)
+                .onChange(of: scenePhase, initial: true) { _, phase in
+                    // ATT prompt only displays while the app is active; ads start after it resolves.
+                    if phase == .active { GoogleMobileAdsInitializer.shared.requestPermissionAndStart() }
+                }
         }
         .modelContainer(sharedModelContainer)
     }
