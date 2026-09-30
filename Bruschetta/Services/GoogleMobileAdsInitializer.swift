@@ -17,24 +17,16 @@ final class GoogleMobileAdsInitializer: ObservableObject {
     func requestPermissionAndStart() {
         guard !isReady, !isRequesting else { return }
         isRequesting = true
-        Task { @MainActor in
+        Task {
             // iOS can drop an ATT request made the instant the app becomes active; wait briefly.
             try? await Task.sleep(for: .milliseconds(750))
-            self.requestAuthorization()
-        }
-    }
-
-    private func requestAuthorization() {
-        ATTrackingManager.requestTrackingAuthorization { status in
             // Any answer (authorized, denied, restricted) is fine — denied just means non-personalized ads.
-            Task { @MainActor in
-                self.isRequesting = false
-                // iOS skips the prompt if the app wasn't active yet; retry on the next activation.
-                guard status != .notDetermined else { return }
-                guard !self.isReady else { return }
-                MobileAds.shared.start(completionHandler: nil)
-                self.isReady = true
-            }
+            let status = await ATTrackingManager.requestTrackingAuthorization()
+            isRequesting = false
+            // iOS skips the prompt if the app wasn't active yet; retry on the next activation.
+            guard status != .notDetermined, !isReady else { return }
+            MobileAds.shared.start(completionHandler: nil)
+            isReady = true
         }
     }
 }
