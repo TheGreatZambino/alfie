@@ -22,11 +22,14 @@ final class GoogleMobileAdsInitializer: ObservableObject {
             try? await Task.sleep(for: .milliseconds(750))
             // Any answer (authorized, denied, restricted) is fine — denied just means non-personalized ads.
             let status = await ATTrackingManager.requestTrackingAuthorization()
-            isRequesting = false
             // iOS skips the prompt if the app wasn't active yet; retry on the next activation.
-            guard status != .notDetermined, !isReady else { return }
-            MobileAds.shared.start(completionHandler: nil)
+            guard status != .notDetermined else {
+                isRequesting = false
+                return
+            }
+            _ = await MobileAds.shared.start()
             isReady = true
+            isRequesting = false
         }
     }
 }
