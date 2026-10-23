@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct BillsSettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -7,6 +8,10 @@ struct BillsSettingsView: View {
 
     @State private var showAddBill = false
     @State private var editingBill: Bill?
+    @State private var showImporter = false
+    @State private var importMessage: String?
+    @State private var templateURL: URL?
+    @State private var showTemplateShareSheet = false
 
     var body: some View {
         List {
@@ -38,14 +43,56 @@ struct BillsSettingsView: View {
             }
             .onDelete(perform: deleteBills)
         }
+        .alfieListStyle()
         .navigationTitle("Bills")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddBill = true
+                Menu {
+                    Button {
+                        showAddBill = true
+                    } label: {
+                        Label("Add Bill", systemImage: "plus")
+                    }
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Label("Import from CSV", systemImage: "square.and.arrow.down")
+                    }
+                    Button {
+                        templateURL = BillImportService.writeTemplate()
+                        if templateURL != nil {
+                            showTemplateShareSheet = true
+                        } else {
+                            importMessage = "The template couldn't be created."
+                        }
+                    } label: {
+                        Label("Get CSV Template", systemImage: "doc.text")
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
+            }
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
+            switch result {
+            case .success(let url):
+                do {
+                    importMessage = try BillImportService.importBills(from: url, into: modelContext).summary
+                } catch {
+                    importMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                importMessage = error.localizedDescription
+            }
+        }
+        .alert("Import Bills", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importMessage ?? "")
+        }
+        .sheet(isPresented: $showTemplateShareSheet) {
+            if let templateURL {
+                ActivityShareSheet(items: [templateURL])
             }
         }
         .sheet(isPresented: $showAddBill) {
@@ -134,6 +181,7 @@ private struct BillEditView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .navigationTitle(bill == nil ? "Add Bill" : "Edit Bill")
             .navigationBarTitleDisplayMode(.inline)
             .confirmationDialog("Delete this bill?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
