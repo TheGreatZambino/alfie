@@ -793,6 +793,7 @@ private struct RepeatWorkoutPickerView: View {
                             }
                         }
                     }
+                    .alfieListStyle()
                 }
             }
             .background(Color.paper)

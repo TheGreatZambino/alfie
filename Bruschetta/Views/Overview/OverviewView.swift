@@ -193,6 +193,7 @@ struct OverviewView: View {
                 ? FinanceSnapshot(incomeThisPeriod: viewModel.incomeThisPeriod, remainingThisPeriod: viewModel.remainingThisPeriod, periodEnd: periodEnd)
                 : nil
             snapshot.nutrition = NutritionSnapshot(caloriesToday: caloriesToday, calorieGoal: viewModel.calorieGoal)
+            snapshot.weekScore = WeekScoreSnapshot(score: viewModel.overallScore, verdict: verdictText)
             snapshot.water = (goal?.isWaterTrackingEnabled ?? true)
                 ? WaterSnapshot(ouncesToday: ouncesToday, goalOunces: goal?.waterGoalOunces ?? 64)
                 : nil

@@ -26,6 +26,8 @@
 	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.healthcare-fitness</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Alfie Track uses your camera to scan food barcodes and quickly log nutrition info.</string>
 	<key>NSFaceIDUsageDescription</key>

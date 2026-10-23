@@ -84,6 +84,8 @@ struct ActiveWorkoutView: View {
     @State private var draftEntries: [LoggedDraftEntry]
     @State private var showDiscardConfirm = false
     @State private var showExercisePicker = false
+    /// Set when the Live Activity skips ahead; otherwise focus is the first unfinished exercise.
+    @State private var focusedEntryID: UUID?
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -112,9 +114,51 @@ struct ActiveWorkoutView: View {
     private var totalSets: Int { draftEntries.reduce(0) { $0 + $1.sets.count } }
     private var completedSets: Int { draftEntries.reduce(0) { $0 + $1.sets.filter(\.isLogged).count } }
 
-    /// Index of the exercise currently in focus — the first one with an unlogged set.
+    private var liveActivityState: WorkoutActivityAttributes.ContentState {
+        guard let index = currentExerciseIndex,
+              let setIndex = draftEntries[index].sets.firstIndex(where: { !$0.isLogged }) else {
+            return .init(currentExercise: nil, setNumber: 0, setsInExercise: 0, weight: 0, effort: "", completedSets: completedSets, totalSets: totalSets)
+        }
+        let entry = draftEntries[index]
+        let set = entry.sets[setIndex]
+        return .init(
+            currentExercise: entry.exercise.name,
+            setNumber: setIndex + 1,
+            setsInExercise: entry.sets.count,
+            weight: set.weight,
+            effort: entry.trackingType == .time ? durationLabel(set.durationSeconds) : "\(set.reps) reps",
+            completedSets: completedSets,
+            totalSets: totalSets
+        )
+    }
+
+    /// Applies a button tap from the Live Activity to the current set.
+    private func handleLiveAction(_ note: Notification) {
+        guard let raw = note.userInfo?["kind"] as? String,
+              let kind = WorkoutLiveAction.Kind(rawValue: raw),
+              let index = currentExerciseIndex else { return }
+        switch kind {
+        case .adjustWeight:
+            guard let setIndex = draftEntries[index].sets.firstIndex(where: { !$0.isLogged }) else { return }
+            let delta = note.userInfo?["delta"] as? Double ?? 0
+            draftEntries[index].sets[setIndex].weight = max(0, draftEntries[index].sets[setIndex].weight + delta)
+        case .logSet:
+            guard let setIndex = draftEntries[index].sets.firstIndex(where: { !$0.isLogged }) else { return }
+            draftEntries[index].sets[setIndex].isLogged = true
+        case .nextExercise:
+            let incomplete = draftEntries.indices.filter { !draftEntries[$0].isComplete }
+            guard let next = incomplete.first(where: { $0 > index }) ?? incomplete.first(where: { $0 != index }) else { return }
+            focusedEntryID = draftEntries[next].id
+        }
+    }
+
+    /// Index of the exercise currently in focus — the first one with an unlogged set, unless the
+    /// Live Activity skipped ahead.
     private var currentExerciseIndex: Int? {
-        draftEntries.firstIndex { !$0.isComplete }
+        if let focusedEntryID, let index = draftEntries.firstIndex(where: { $0.id == focusedEntryID && !$0.isComplete }) {
+            return index
+        }
+        return draftEntries.firstIndex { !$0.isComplete }
     }
 
     var body: some View {
@@ -161,6 +205,16 @@ struct ActiveWorkoutView: View {
             }
             .onReceive(timer) { value in
                 now = value
+            }
+            .onAppear {
+                WorkoutLiveActivityManager.shared.start(name: plan.name, startDate: startTime, state: liveActivityState)
+            }
+            .onChange(of: liveActivityState) { _, state in
+                WorkoutLiveActivityManager.shared.update(state)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: WorkoutLiveAction.notification), perform: handleLiveAction)
+            .onDisappear {
+                WorkoutLiveActivityManager.shared.end()
             }
             .interactiveDismissDisabled()
         }

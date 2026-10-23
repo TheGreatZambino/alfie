@@ -27,6 +27,12 @@ final class OverviewViewModel: ObservableObject {
     @Published var weeklyStepGoal: Int = 70000
     @Published var isLoadingSteps: Bool = false
 
+    @Published var milesThisWeek: Double = 0
+    @Published var milesThisMonth: Double = 0
+    @Published var weeklyMileGoal: Double = 0
+    @Published var monthlyMileGoal: Double = 0
+    @Published var averageDailyMileGoal: Double = 0
+
     @Published var incomeThisPeriod: Double = 0
     @Published var remainingThisPeriod: Double = 0
     @Published var billsAllocationThisPeriod: Double = 0
@@ -77,6 +83,10 @@ final class OverviewViewModel: ObservableObject {
         strengthGoal = workoutGoals?.weeklyStrengthGoal ?? 3
         cardioGoal = workoutGoals?.weeklyCardioGoal ?? 2
         weeklyStepGoal = workoutGoals?.weeklyStepGoal ?? 70000
+        weeklyMileGoal = workoutGoals?.weeklyMileGoal ?? 0
+        monthlyMileGoal = workoutGoals?.monthlyMileGoal ?? 0
+        averageDailyMileGoal = workoutGoals?.averageDailyMileGoal ?? 0
+        let monthStart = calendar.dateInterval(of: .month, for: now)?.start ?? start
         let weekSessions = sessions.filter { $0.date >= start && $0.date <= now }
         strengthSessionsThisWeek = weekSessions.count
         cardioSessionsThisWeek = 0
@@ -155,8 +165,11 @@ final class OverviewViewModel: ObservableObject {
             guard let self else { return }
             async let workoutsFetch = health.fetchWorkouts(in: DateInterval(start: start, end: now))
             async let stepsFetch = health.fetchStepCount(in: DateInterval(start: start, end: now))
-            let (workouts, steps) = await (workoutsFetch, stepsFetch)
+            async let monthFetch = health.fetchWorkouts(in: DateInterval(start: min(monthStart, start), end: now))
+            let (workouts, steps, monthWorkouts) = await (workoutsFetch, stepsFetch, monthFetch)
             guard !Task.isCancelled else { return }
+            self.milesThisWeek = workouts.reduce(0) { $0 + ($1.distanceMiles ?? 0) }
+            self.milesThisMonth = monthWorkouts.filter { $0.startDate >= monthStart }.reduce(0) { $0 + ($1.distanceMiles ?? 0) }
             self.cardioSessionsThisWeek = workouts.count
             self.stepsThisWeek = steps
             self.isLoadingCardio = false
@@ -187,7 +200,14 @@ final class OverviewViewModel: ObservableObject {
         let strengthProgress = strengthGoal > 0 ? min(1, Double(strengthSessionsThisWeek) / Double(strengthGoal)) : 1
         let cardioProgress = cardioGoal > 0 ? min(1, Double(cardioSessionsThisWeek) / Double(cardioGoal)) : 1
         let stepsProgress = weeklyStepGoal > 0 ? min(1, Double(stepsThisWeek) / Double(weeklyStepGoal)) : 1
-        workoutScore = (strengthProgress + cardioProgress + stepsProgress) / 3 * 100
+        var components = [strengthProgress, cardioProgress, stepsProgress]
+        // Mile goals are opt-in: a goal of 0 is left out of the score entirely.
+        if weeklyMileGoal > 0 { components.append(min(1, milesThisWeek / weeklyMileGoal)) }
+        if monthlyMileGoal > 0 { components.append(min(1, milesThisMonth / monthlyMileGoal)) }
+        if averageDailyMileGoal > 0 {
+            components.append(min(1, (milesThisWeek / Double(max(daysElapsedThisWeek, 1))) / averageDailyMileGoal))
+        }
+        workoutScore = components.reduce(0, +) / Double(components.count) * 100
     }
 
     private func recomputeOverallScore() {

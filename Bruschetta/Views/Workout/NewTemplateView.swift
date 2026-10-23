@@ -395,6 +395,7 @@ struct ExercisePickerView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .searchable(text: $searchText)
             .navigationTitle("Add Exercise")
             .navigationBarTitleDisplayMode(.inline)
@@ -444,6 +445,7 @@ struct NewExerciseView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .navigationTitle("New Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

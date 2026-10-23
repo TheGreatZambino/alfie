@@ -39,6 +39,7 @@ struct EditWaterEntryView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .navigationTitle("Edit Water Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

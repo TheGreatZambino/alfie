@@ -7,38 +7,37 @@ enum CalorieCalcSex: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Lifestyle categories from FAO/WHO/UNU, Human energy requirements (2004), Table 5.3.
+/// Raw values are kept stable for existing @AppStorage selections.
 enum CalorieCalcActivityLevel: String, CaseIterable, Identifiable {
-    case none
-    case low
-    case medium
-    case high
+    case sedentary = "low"
+    case active = "medium"
+    case vigorous = "high"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .none: return "None"
-        case .low: return "Low"
-        case .medium: return "Medium"
-        case .high: return "High"
+        case .sedentary: return "Sedentary or Light"
+        case .active: return "Active or Moderately Active"
+        case .vigorous: return "Vigorous"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .none: return "Little to no exercise"
-        case .low: return "1–3 workouts/week"
-        case .medium: return "3–5 workouts/week"
-        case .high: return "6–7 workouts/week"
+        case .sedentary: return "Little to light activity · PAL range 1.40–1.69"
+        case .active: return "Regular moderate activity · PAL range 1.70–1.99"
+        case .vigorous: return "Frequent intense activity · PAL range 2.00–2.40"
         }
     }
 
+    /// Midpoint of the report's PAL range for the category.
     var multiplier: Double {
         switch self {
-        case .none: return 1.2
-        case .low: return 1.375
-        case .medium: return 1.55
-        case .high: return 1.725
+        case .sedentary: return 1.55
+        case .active: return 1.85
+        case .vigorous: return 2.20
         }
     }
 }
@@ -70,7 +69,7 @@ struct CalorieCalculatorView: View {
     @AppStorage("calorieCalc.heightFeet") private var heightFeet = 5
     @AppStorage("calorieCalc.heightInches") private var heightInches = 8
     @AppStorage("calorieCalc.weightPounds") private var weightPounds = 160
-    @AppStorage("calorieCalc.activityLevel") private var activityLevel: CalorieCalcActivityLevel = .low
+    @AppStorage("calorieCalc.activityLevel") private var activityLevel: CalorieCalcActivityLevel = .sedentary
     @AppStorage("calorieCalc.goal") private var goal: CalorieCalcGoal = .maintain
 
     /// Mifflin-St Jeor basal metabolic rate.
@@ -84,9 +83,51 @@ struct CalorieCalculatorView: View {
     private var maintenanceCalories: Double { bmr * activityLevel.multiplier }
     private var targetCalories: Double { maintenanceCalories + goal.calorieAdjustment }
 
+    private func sourceRow(title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(Color.accentColor)
+                .multilineTextAlignment(.leading)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(Color.inkSecondary)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Link(destination: URL(string: "https://doi.org/10.1093/ajcn/51.2.241")!) {
+                        sourceRow(
+                            title: "Mifflin MD, et al. A new predictive equation for resting energy expenditure in healthy individuals. Am J Clin Nutr. 1990;51(2):241–247.",
+                            detail: "Basal metabolic rate formula"
+                        )
+                    }
+                    Link(destination: URL(string: "https://pubmed.ncbi.nlm.nih.gov/2305711/")!) {
+                        sourceRow(
+                            title: "PubMed: Mifflin et al., 1990",
+                            detail: "Abstract and citation record"
+                        )
+                    }
+                    Link(destination: URL(string: "https://www.fao.org/4/Y5686E/y5686e00.htm")!) {
+                        sourceRow(
+                            title: "FAO/WHO/UNU. Human energy requirements: Report of a Joint Expert Consultation. FAO Food and Nutrition Technical Report Series 1. Rome, 2004.",
+                            detail: "Physical activity level ranges (Table 5.3)"
+                        )
+                    }
+                    Link(destination: URL(string: "https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss/art-20047752")!) {
+                        sourceRow(
+                            title: "Mayo Clinic: Weight loss — 6 strategies for success",
+                            detail: "±500 cal/day adjustment for about 1 lb/week"
+                        )
+                    }
+                } header: {
+                    Text("Sources")
+                } footer: {
+                    Text("Total daily energy is estimated as BMR × physical activity level (PAL). Activity categories and PAL ranges are from Table 5.3 of the FAO/WHO/UNU report; the midpoint of each range is used.")
+                }
                 Section("About You") {
                     Picker("Sex", selection: $sex) {
                         ForEach(CalorieCalcSex.allCases) { Text($0.rawValue).tag($0) }
@@ -155,9 +196,10 @@ struct CalorieCalculatorView: View {
                 } header: {
                     Text("Result")
                 } footer: {
-                    Text("Estimated using the Mifflin-St Jeor formula. This is a starting point — adjust based on how your weight trends over a few weeks.")
+                    Text("Estimated using the Mifflin-St Jeor formula. This is a starting point — adjust based on how your weight trends over a few weeks. This is not medical advice; consult a healthcare professional before changing your diet.")
                 }
             }
+            .alfieListStyle()
             .navigationTitle("Calculate Calorie Intake")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

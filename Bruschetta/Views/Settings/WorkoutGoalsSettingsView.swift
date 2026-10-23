@@ -10,6 +10,9 @@ struct WorkoutGoalsSettingsView: View {
     @State private var cardioGoal = 2
     @State private var dailyStepGoal = 10000
     @State private var weeklyStepGoal = 70000
+    @State private var weeklyMileGoal = 0.0
+    @State private var monthlyMileGoal = 0.0
+    @State private var averageDailyMileGoal = 0.0
 
     var body: some View {
         Form {
@@ -50,7 +53,18 @@ struct WorkoutGoalsSettingsView: View {
             } footer: {
                 Text("Daily goal shows on the Workouts tab; weekly goal is used on the Overview tab. Requires Apple Health access.")
             }
+
+            Section {
+                mileRow("Weekly miles", value: $weeklyMileGoal, max: 500)
+                mileRow("Monthly miles", value: $monthlyMileGoal, max: 2000)
+                mileRow("Average daily miles", value: $averageDailyMileGoal, max: 100)
+            } header: {
+                Text("Mile Goals")
+            } footer: {
+                Text("Miles come from your Apple Health workouts. Average daily miles is this week's total divided by days elapsed. Goals set to 0 are left out of your Workouts score.")
+            }
         }
+        .alfieListStyle()
         .navigationTitle("Workout Goals")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -61,12 +75,29 @@ struct WorkoutGoalsSettingsView: View {
         .onAppear { load() }
     }
 
+    private func mileRow(_ title: String, value: Binding<Double>, max upper: Double) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", value: value, format: .number.precision(.fractionLength(0...1)))
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 90)
+                .onChange(of: value.wrappedValue) { _, newValue in
+                    value.wrappedValue = min(Swift.max(newValue, 0), upper)
+                }
+        }
+    }
+
     private func load() {
         guard let goal = goals.first else { return }
         strengthGoal = goal.weeklyStrengthGoal
         cardioGoal = goal.weeklyCardioGoal
         dailyStepGoal = goal.dailyStepGoal
         weeklyStepGoal = goal.weeklyStepGoal
+        weeklyMileGoal = goal.weeklyMileGoal
+        monthlyMileGoal = goal.monthlyMileGoal
+        averageDailyMileGoal = goal.averageDailyMileGoal
     }
 
     private func save() {
@@ -81,6 +112,9 @@ struct WorkoutGoalsSettingsView: View {
         goal.weeklyCardioGoal = cardioGoal
         goal.dailyStepGoal = dailyStepGoal
         goal.weeklyStepGoal = weeklyStepGoal
+        goal.weeklyMileGoal = weeklyMileGoal
+        goal.monthlyMileGoal = monthlyMileGoal
+        goal.averageDailyMileGoal = averageDailyMileGoal
         goal.updatedAt = Date()
         try? modelContext.save()
         dismiss()

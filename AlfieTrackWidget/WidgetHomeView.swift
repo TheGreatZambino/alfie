@@ -14,6 +14,10 @@ struct WidgetHomeView: View {
     var body: some View {
         let sections = isCompact ? configuration.compactSections : configuration.orderedSections
         VStack(alignment: .leading, spacing: isCompact ? 8 : 14) {
+            if !isCompact && configuration.showWeekScore {
+                weekScoreHeader
+                if !sections.isEmpty { Divider() }
+            }
             ForEach(Array(sections.enumerated()), id: \.offset) { index, option in
                 sectionView(for: option)
                 if index < sections.count - 1 {
@@ -35,6 +39,27 @@ struct WidgetHomeView: View {
         }
     }
 
+    // MARK: - Week Score
+
+    private var weekScoreHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Label("This Week", systemImage: "chart.bar.fill")
+                .font(.caption.bold())
+                .foregroundStyle(Self.accent)
+            Spacer()
+            if let week = snapshot.weekScore {
+                Text(week.verdict)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text("\(Int(week.score.rounded()))")
+                    .font(.title2.bold())
+                    .foregroundStyle(Self.accent)
+            } else {
+                placeholder("Open the app to see your score")
+            }
+        }
+    }
+
     // MARK: - Finance
 
     @ViewBuilder
@@ -44,15 +69,17 @@ struct WidgetHomeView: View {
                 if let finance = snapshot.finance {
                     Text(finance.remainingThisPeriod, format: .currency(code: "USD"))
                         .font(.subheadline.bold())
-                        .foregroundStyle(finance.remainingThisPeriod >= 0 ? Self.accent : .red)
+                        .foregroundStyle(finance.remainingThisPeriod >= 0 ? Color.primary : .red)
                     Text("left")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 4)
                     if let periodEnd = finance.periodEnd {
-                        Text(periodEnd, format: .dateTime.month(.abbreviated).day())
+                        Text("\(periodEnd.formatted(.dateTime.month(.abbreviated).day())) - Next Payday")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                 } else {
                     placeholder("Set up income in Settings")
@@ -65,14 +92,14 @@ struct WidgetHomeView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(finance.remainingThisPeriod, format: .currency(code: "USD"))
                                 .font(.subheadline.bold())
-                                .foregroundStyle(finance.remainingThisPeriod >= 0 ? Self.accent : .red)
+                                .foregroundStyle(finance.remainingThisPeriod >= 0 ? Color.primary : .red)
                             Text("remaining this period")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
                         if let periodEnd = finance.periodEnd {
-                            Text(periodEnd, format: .dateTime.month(.abbreviated).day())
+                            Text("\(periodEnd.formatted(.dateTime.month(.abbreviated).day())) - Next Payday")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

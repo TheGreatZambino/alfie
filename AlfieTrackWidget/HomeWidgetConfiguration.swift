@@ -38,6 +38,9 @@ struct HomeWidgetConfigurationIntent: WidgetConfigurationIntent {
     @Parameter(title: "Row 4", default: .workouts)
     var bottomSection: HomeWidgetSection
 
+    @Parameter(title: "Show Week Score (Large)", default: true)
+    var showWeekScore: Bool
+
     /// All four configured rows in order, hidden ones removed. Used by the large widget, which
     /// has room for all of them.
     var orderedSections: [HomeWidgetSection] {

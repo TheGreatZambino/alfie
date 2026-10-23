@@ -91,6 +91,7 @@ struct AddFoodEntryView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .searchable(text: $query, prompt: "Search foods, e.g. chicken breast")
             .task(id: query) {
                 guard !query.isEmpty else {
@@ -99,7 +100,14 @@ struct AddFoodEntryView: View {
                 }
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 guard !Task.isCancelled else { return }
-                networkResults = await lookupService.search(query: query)
+                let results = await lookupService.search(query: query)
+                // Hide network hits for foods the user already has saved; those show under "Your Foods".
+                let savedKeys = Set(localFoodItems.map { FoodLookupService.textKey(name: $0.name, brand: $0.brand) })
+                let savedBarcodes = Set(localFoodItems.compactMap { FoodLookupService.barcodeKey($0.barcode) })
+                networkResults = results.filter {
+                    !savedKeys.contains(FoodLookupService.textKey(name: $0.name, brand: $0.brand))
+                        && !(FoodLookupService.barcodeKey($0.barcode).map(savedBarcodes.contains) ?? false)
+                }
             }
             .navigationTitle(existingEntry != nil ? "Edit Food" : "Add Food")
             .navigationBarTitleDisplayMode(.inline)
@@ -357,6 +365,7 @@ private struct LogFoodDetailView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .navigationTitle(existingEntry != nil ? "Edit Entry" : "Log Food")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -484,6 +493,7 @@ private struct CustomFoodFormView: View {
                     }
                 }
             }
+            .alfieListStyle()
             .navigationTitle("Custom Food")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

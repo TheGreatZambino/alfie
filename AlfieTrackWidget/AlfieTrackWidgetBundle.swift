@@ -6,5 +6,6 @@ struct AlfieTrackWidgetBundle: WidgetBundle {
     var body: some Widget {
         AlfieTrackWidget()
         AlfieHomeWidget()
+        WorkoutLiveActivity()
     }
 }

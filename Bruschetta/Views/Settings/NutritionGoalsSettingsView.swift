@@ -44,6 +44,7 @@ struct NutritionGoalsSettingsView: View {
                 Text("The recommended daily intake is about 64 oz (eight 8 oz glasses). Turn tracking off to hide water from your nutrition screen.")
             }
         }
+        .alfieListStyle()
         .sheet(isPresented: $showCalculator) {
             CalorieCalculatorView { calories in
                 calorieGoalText = String(calories)

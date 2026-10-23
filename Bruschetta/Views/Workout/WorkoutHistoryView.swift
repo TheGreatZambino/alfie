@@ -19,6 +19,7 @@ struct WorkoutHistoryView: View {
                 row(for: item)
             }
         }
+        .alfieListStyle()
         .navigationTitle("Workout History")
         .navigationBarTitleDisplayMode(.inline)
         .overlay {

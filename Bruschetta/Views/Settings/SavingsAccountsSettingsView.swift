@@ -34,6 +34,7 @@ struct SavingsAccountsSettingsView: View {
                 Text("Savings is treated as cash — if a pay period ends with non-bill spending below zero, the shortfall is automatically pulled from this balance. Investments is tracked separately and isn't touched by overspending. Set an amount per paycheck to have it counted as committed funds.")
             }
         }
+        .alfieListStyle()
         .navigationTitle("Savings")
         .sheet(item: $editingAccount) { account in
             SavingsAccountEditView(account: account)
@@ -65,6 +66,7 @@ private struct SavingsAccountEditView: View {
                     Text("How much you set aside for \(account.name.lowercased()) each paycheck. This is counted as committed funds on the Finances tab.")
                 }
             }
+            .alfieListStyle()
             .navigationTitle(account.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

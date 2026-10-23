@@ -28,6 +28,7 @@ struct IncomeSettingsView: View {
                 DatePicker("Next pay date", selection: $nextPayDate, displayedComponents: .date)
             }
         }
+        .alfieListStyle()
         .navigationTitle("Income")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

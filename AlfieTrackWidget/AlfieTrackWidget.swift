@@ -59,7 +59,8 @@ struct HomeTimelineProvider: AppIntentTimelineProvider {
                 cardio: CardioWorkoutSnapshot(activityName: "Run", date: Date(), durationMinutes: 32, distanceMiles: 3.1),
                 finance: FinanceSnapshot(incomeThisPeriod: 2000, remainingThisPeriod: 340, periodEnd: Date()),
                 nutrition: NutritionSnapshot(caloriesToday: 1200, calorieGoal: 2000),
-                water: WaterSnapshot(ouncesToday: 32, goalOunces: 64)
+                water: WaterSnapshot(ouncesToday: 32, goalOunces: 64),
+                weekScore: WeekScoreSnapshot(score: 72, verdict: "Good week so far")
             ),
             configuration: HomeWidgetConfigurationIntent()
         )

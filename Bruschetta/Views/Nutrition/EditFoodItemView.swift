@@ -76,6 +76,7 @@ struct EditFoodItemView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .alfieListStyle()
             .navigationTitle("Edit Food")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

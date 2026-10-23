@@ -117,33 +117,51 @@ final class FoodLookupService: ObservableObject {
             errorMessage = "No results found."
         }
 
-        var seen = Set<String>()
-        var merged: [FoodResult] = []
-        for result in usdaResults + offResults {
-            if seen.insert(Self.dedupKey(for: result)).inserted {
-                merged.append(result)
-            }
-        }
-        return Array(merged.prefix(30))
+        return Array(Self.deduplicated(usdaResults + offResults).prefix(30))
     }
 
-    /// A barcode is a much stronger identity signal than name/brand text, so two results
-    /// sharing one (e.g. the same product returned by both USDA and Open Food Facts) are
-    /// treated as duplicates even if their descriptions read differently. Otherwise falls
-    /// back to normalized name+brand text — punctuation/whitespace stripped and lowercased,
-    /// so "Chicken Breast," and "chicken breast" collapse to the same key.
-    private static func dedupKey(for result: FoodResult) -> String {
-        if let barcode = result.barcode, !barcode.isEmpty {
-            return "barcode:\(barcode)"
+    /// Collapses results that describe the same food. Order is preserved, so the earlier
+    /// entry wins (USDA is listed before Open Food Facts since it's QA'd). A result is a
+    /// duplicate if it shares a barcode (compared with leading zeros stripped, so UPC-A and
+    /// EAN-13 forms match) or a normalized name+brand with anything already kept — checked
+    /// independently, so a barcode-less entry still collapses into a barcoded twin.
+    static func deduplicated(_ results: [FoodResult]) -> [FoodResult] {
+        var seenBarcodes = Set<String>()
+        var seenText = Set<String>()
+        var kept: [FoodResult] = []
+        for result in results {
+            let barcode = barcodeKey(result.barcode)
+            let text = textKey(name: result.name, brand: result.brand)
+            if let barcode, seenBarcodes.contains(barcode) { continue }
+            if seenText.contains(text) { continue }
+            if let barcode { seenBarcodes.insert(barcode) }
+            seenText.insert(text)
+            kept.append(result)
         }
-        return "text:\(normalizeForDedup(result.name))|\(normalizeForDedup(result.brand ?? ""))"
+        return kept
     }
 
-    private static func normalizeForDedup(_ text: String) -> String {
-        text.lowercased()
+    static func barcodeKey(_ barcode: String?) -> String? {
+        guard let digits = barcode?.filter(\.isNumber).drop(while: { $0 == "0" }), !digits.isEmpty else { return nil }
+        return String(digits)
+    }
+
+    /// Lowercased, punctuation-stripped, word-order-independent name+brand. The brand is
+    /// removed from the name when it prefixes it ("Kraft Mac & Cheese" by "Kraft"), since
+    /// USDA and Open Food Facts disagree on whether the name includes it.
+    static func textKey(name: String, brand: String?) -> String {
+        let brandWords = words(brand ?? "")
+        var nameWords = words(name)
+        if !brandWords.isEmpty, nameWords.starts(with: brandWords) {
+            nameWords.removeFirst(brandWords.count)
+        }
+        return nameWords.sorted().joined(separator: " ") + "|" + brandWords.sorted().joined(separator: " ")
+    }
+
+    private static func words(_ text: String) -> [String] {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
-            .joined(separator: " ")
     }
 
     // MARK: - Open Food Facts

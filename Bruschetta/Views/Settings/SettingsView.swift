@@ -202,6 +202,7 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(appearanceMode.colorScheme)
+        .tint(.food)
         .sheet(isPresented: $showTour) {
             AppTourView(trackedModules: trackedModules)
         }

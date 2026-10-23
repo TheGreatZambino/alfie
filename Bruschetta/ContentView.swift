@@ -76,6 +76,8 @@ struct ContentView: View {
                     }
                     .sheet(isPresented: $showOnboarding, onDismiss: {
                         hasCompletedOnboarding = true
+                        // End of onboarding: ask for Health access only if they opted into a Health-backed module.
+                        Task { await requestHealthAccessIfNeeded() }
                     }) {
                         OnboardingView()
                     }
@@ -89,7 +91,8 @@ struct ContentView: View {
                         if !hasCompletedOnboarding {
                             showOnboarding = true
                         }
-                        await HealthKitManager.shared.requestAuthorizationAndFetch()
+                        // Returning users only; new users are asked when onboarding ends.
+                        if hasCompletedOnboarding { await requestHealthAccessIfNeeded() }
                         await NotificationManager.shared.syncEnabledReminders()
                     }
                     .disabled(!authManager.isUnlocked)
@@ -107,6 +110,14 @@ struct ContentView: View {
                 authManager.lock()
             }
         }
+    }
+
+    /// Health data only backs Nutrition and Workouts, so don't prompt unless one is tracked.
+    private func requestHealthAccessIfNeeded() async {
+        guard trackedModules.contains(.nutrition) || trackedModules.contains(.workouts) else { return }
+        // Let the ATT prompt resolve first; iOS drops it if another system prompt is showing.
+        await GoogleMobileAdsInitializer.shared.waitUntilResolved()
+        await HealthKitManager.shared.requestAuthorizationAndFetch()
     }
 
     private func isTabVisible(_ tab: AppTab) -> Bool {

@@ -42,6 +42,7 @@ struct CategoriesSettingsView: View {
             .onDelete(perform: requestDelete)
             .onMove(perform: moveCategories)
         }
+        .alfieListStyle()
         .navigationTitle("Categories")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -170,6 +171,7 @@ private struct CategoryEditView: View {
                     ))
                 }
             }
+            .alfieListStyle()
             .navigationTitle(category == nil ? "Add Category" : "Edit Category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
