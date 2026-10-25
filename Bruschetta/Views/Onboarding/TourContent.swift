@@ -150,7 +150,11 @@ struct TourPageView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            IconBadge(systemName: page.icon, color: page.color, size: 52, shape: .roundedSquare(radius: 16))
+            // The privacy page is the last and tallest; dropping its badge keeps the
+            // Alfie Track Plus call-to-action on screen without scrolling.
+            if page != .privacy {
+                IconBadge(systemName: page.icon, color: page.color, size: 52, shape: .roundedSquare(radius: 16))
+            }
 
             Text(page.eyebrow)
                 .eyebrowStyle(color: page.color)

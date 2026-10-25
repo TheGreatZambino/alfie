@@ -95,6 +95,11 @@ struct DashboardView: View {
 
             HStack(spacing: 10) {
                 NavigationLink {
+                    ShoppingListView()
+                } label: {
+                    circleButton(systemName: "cart")
+                }
+                NavigationLink {
                     TrendsView()
                 } label: {
                     circleButton(systemName: "chart.bar.xaxis")
@@ -156,7 +161,8 @@ private struct BalanceCard: View {
                     .init(fraction: committedFraction, color: Color(hex: "#F2C94C")),
                     .init(fraction: spentFraction, color: .white),
                 ],
-                trackColor: .white.opacity(0.22)
+                trackColor: .white.opacity(0.22),
+                gap: 0
             )
 
             HStack(spacing: 14) {

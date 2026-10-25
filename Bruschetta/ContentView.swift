@@ -141,13 +141,23 @@ struct ContentView: View {
     }
 
     private func seedExercisesIfNeeded() {
-        let existingNames = Set(exercises.map { $0.name })
-        var didInsert = false
+        var existingNames = Set(exercises.map { $0.name })
+        var didChange = false
+        // Rename previously seeded exercises in place so logged history and templates follow.
+        for exercise in exercises where !exercise.isCustom {
+            guard let newName = Exercise.renamedExercises[exercise.name],
+                  !existingNames.contains(newName) else { continue }
+            existingNames.remove(exercise.name)
+            exercise.name = newName
+            existingNames.insert(newName)
+            didChange = true
+        }
         for seed in Exercise.starterExercises where !existingNames.contains(seed.name) {
             modelContext.insert(Exercise(name: seed.name, muscleGroup: seed.muscleGroup))
-            didInsert = true
+            existingNames.insert(seed.name)
+            didChange = true
         }
-        guard didInsert else { return }
+        guard didChange else { return }
         try? modelContext.save()
     }
 

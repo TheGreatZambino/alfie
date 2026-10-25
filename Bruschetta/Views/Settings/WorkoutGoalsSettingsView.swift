@@ -6,6 +6,8 @@ struct WorkoutGoalsSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var goals: [WorkoutGoals]
 
+    @AppStorage(RestTimerSound.storageKey) private var restSound = RestTimerSound.boxingBell
+
     @State private var strengthGoal = 3
     @State private var cardioGoal = 2
     @State private var dailyStepGoal = 10000
@@ -62,6 +64,21 @@ struct WorkoutGoalsSettingsView: View {
                 Text("Mile Goals")
             } footer: {
                 Text("Miles come from your Apple Health workouts. Average daily miles is this week's total divided by days elapsed. Goals set to 0 are left out of your Workouts score.")
+            }
+
+            Section {
+                Picker("Sound", selection: $restSound) {
+                    ForEach(RestTimerSound.allCases) { sound in
+                        Text(sound.label).tag(sound)
+                    }
+                }
+                .onChange(of: restSound) { _, sound in
+                    RestTimerSoundPlayer.shared.play(sound)
+                }
+            } header: {
+                Text("Rest Timer")
+            } footer: {
+                Text("Plays when a rest timer ends during a workout. Follows your silent switch and plays through headphones.")
             }
         }
         .alfieListStyle()

@@ -15,6 +15,7 @@ private struct DraftSet: Identifiable {
     var reps: Int = 10
     var weight: Double = 0
     var durationSeconds: Int = 30
+    var restSeconds: Int = 0
 }
 
 struct NewTemplateView: View {
@@ -27,19 +28,29 @@ struct NewTemplateView: View {
     @State private var draftEntries: [DraftEntry]
     @State private var showExercisePicker = false
     @State private var showDeleteConfirm = false
+    @State private var bulkRestTarget: RestBulkTarget?
+    @State private var isReordering = false
 
     init(template: WorkoutTemplate? = nil) {
         existingTemplate = template
         _name = State(initialValue: template?.name ?? "")
         _draftEntries = State(initialValue: (template?.sortedEntries ?? []).compactMap { entry in
             guard let exercise = entry.exercise else { return nil }
-            let sets = entry.sortedSetEntries.map { DraftSet(reps: $0.targetReps, weight: $0.targetWeight, durationSeconds: $0.targetDurationSeconds) }
+            let sets = entry.sortedSetEntries.map { DraftSet(reps: $0.targetReps, weight: $0.targetWeight, durationSeconds: $0.targetDurationSeconds, restSeconds: $0.restSeconds) }
             return DraftEntry(exercise: exercise, trackingType: entry.trackingType, sets: sets.isEmpty ? DraftEntry.defaultSets : sets)
         })
     }
 
     var body: some View {
         NavigationStack {
+            Group {
+            if isReordering {
+                ReorderExerciseList(items: draftEntries.map {
+                    ReorderRowItem(id: $0.id, title: $0.exercise.name, subtitle: "\($0.sets.count) \($0.sets.count == 1 ? "set" : "sets")")
+                }) { source, destination in
+                    withAnimation(.snappy) { draftEntries.move(fromOffsets: source, toOffset: destination) }
+                }
+            } else {
             ScrollView {
                 VStack(spacing: 16) {
                     nameCard
@@ -47,8 +58,29 @@ struct NewTemplateView: View {
                     if draftEntries.isEmpty {
                         emptyExercisesState
                     } else {
+                        Button {
+                            bulkRestTarget = RestBulkTarget(entryID: nil, title: "Rest for Whole Template", initialSeconds: draftEntries.flatMap(\.sets).first { $0.restSeconds > 0 }?.restSeconds ?? 0)
+                        } label: {
+                            HStack {
+                                Label("Rest for All Exercises", systemImage: "timer")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(Color.training)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .frame(maxWidth: .infinity)
+                            .cardStyle()
+                        }
+                        .buttonStyle(.plain)
+
                         ForEach($draftEntries) { $entry in
-                            ExerciseCard(entry: $entry) {
+                            ExerciseCard(entry: $entry, onBulkRest: {
+                                bulkRestTarget = RestBulkTarget(entryID: entry.id, title: entry.exercise.name, initialSeconds: entry.sets.first { $0.restSeconds > 0 }?.restSeconds ?? 0)
+                            }) {
                                 withAnimation(.snappy) {
                                     draftEntries.removeAll { $0.id == entry.id }
                                 }
@@ -58,6 +90,7 @@ struct NewTemplateView: View {
                         AddExerciseTile {
                             showExercisePicker = true
                         }
+
                     }
 
                     if existingTemplate != nil {
@@ -67,16 +100,40 @@ struct NewTemplateView: View {
                 .padding()
             }
             .background(Color.paper)
+            }
+            }
             .navigationTitle(existingTemplate == nil ? "New Strength Template" : "Edit Template")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        withAnimation(.snappy) { isReordering.toggle() }
+                    } label: {
+                        if isReordering {
+                            Text("Done").fontWeight(.semibold)
+                        } else {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                    }
+                    .disabled(draftEntries.count < 2)
+                    .accessibilityLabel(isReordering ? "Done reordering" : "Reorder exercises")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
                         .fontWeight(.semibold)
                         .disabled(name.isEmpty || draftEntries.isEmpty || draftEntries.contains { $0.sets.isEmpty })
+                }
+            }
+            .sheet(item: $bulkRestTarget) { target in
+                BulkRestSheet(target: target) { seconds in
+                    for index in draftEntries.indices where target.entryID == nil || draftEntries[index].id == target.entryID {
+                        for setIndex in draftEntries[index].sets.indices {
+                            draftEntries[index].sets[setIndex].restSeconds = seconds
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $showExercisePicker) {
@@ -179,7 +236,7 @@ struct NewTemplateView: View {
             modelContext.insert(templateEntry)
 
             for (setIndex, draftSet) in entry.sets.enumerated() {
-                let setEntry = TemplateSetEntry(setNumber: setIndex + 1, targetReps: draftSet.reps, targetWeight: draftSet.weight, targetDurationSeconds: draftSet.durationSeconds)
+                let setEntry = TemplateSetEntry(setNumber: setIndex + 1, targetReps: draftSet.reps, targetWeight: draftSet.weight, targetDurationSeconds: draftSet.durationSeconds, restSeconds: draftSet.restSeconds)
                 setEntry.templateExercise = templateEntry
                 modelContext.insert(setEntry)
             }
@@ -198,6 +255,7 @@ struct NewTemplateView: View {
 
 private struct ExerciseCard: View {
     @Binding var entry: DraftEntry
+    let onBulkRest: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -216,9 +274,12 @@ private struct ExerciseCard: View {
                 Spacer()
 
                 Menu {
+                    Button(action: onBulkRest) {
+                        Label("Set Rest for All Sets", systemImage: "timer")
+                    }
                     Button {
                         let last = entry.sets.last
-                        entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30))
+                        entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30, restSeconds: last?.restSeconds ?? 0))
                     } label: {
                         Label("Add Set", systemImage: "plus")
                     }
@@ -252,9 +313,13 @@ private struct ExerciseCard: View {
                 }
             }
 
+            if entry.sets.contains(where: { $0.restSeconds > 0 }) {
+                RestSoundNote()
+            }
+
             Button {
                 let last = entry.sets.last
-                entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30))
+                entry.sets.append(DraftSet(reps: last?.reps ?? 10, weight: last?.weight ?? 0, durationSeconds: last?.durationSeconds ?? 30, restSeconds: last?.restSeconds ?? 0))
             } label: {
                 Label("Add Set", systemImage: "plus")
                     .font(.caption.bold())
@@ -273,6 +338,13 @@ private struct SetRow: View {
     let onDelete: () -> Void
 
     var body: some View {
+        VStack(spacing: 6) {
+            setFields
+            RestTimerRow(seconds: $set.restSeconds)
+        }
+    }
+
+    private var setFields: some View {
         HStack(spacing: 10) {
             Text("\(setNumber)")
                 .font(.caption.bold())

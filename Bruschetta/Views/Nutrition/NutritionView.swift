@@ -72,6 +72,24 @@ struct NutritionView: View {
                         showAddFood = true
                     }
 
+                    NavigationLink {
+                        RecipesView()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "book.pages")
+                                .foregroundStyle(Color.food)
+                            Text("Recipes")
+                                .font(.rowTitle)
+                                .foregroundStyle(Color.ink)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.inkTertiary)
+                        }
+                        .cardStyle(radius: 18)
+                    }
+                    .buttonStyle(.plain)
+
                     ForEach(MealType.allCases) { meal in
                         let entries = todaysEntries.filter { $0.mealType == meal }
                         MealSection(meal: meal, entries: entries, caloriesRemaining: caloriesRemaining) {

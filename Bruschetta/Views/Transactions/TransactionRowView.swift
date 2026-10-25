@@ -17,6 +17,11 @@ struct TransactionRowView: View {
                 HStack(spacing: 4) {
                     Text(transaction.category?.name ?? "Uncategorized")
                         .font(.body)
+                    if !(transaction.shoppingItems ?? []).isEmpty {
+                        Image(systemName: "cart.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                     if transaction.receiptImageData != nil {
                         Image(systemName: "camera.fill")
                             .font(.caption2)

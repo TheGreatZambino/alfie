@@ -21,16 +21,15 @@ struct SegmentedBar: View {
 
             HStack(spacing: gap) {
                 ForEach(Array(visibleSegments.enumerated()), id: \.offset) { _, segment in
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    // With no gap, use square segments clipped to one rounded bar so colors meet seamlessly.
+                    RoundedRectangle(cornerRadius: gap == 0 ? 0 : 4, style: .continuous)
                         .fill(segment.color)
                         .frame(width: usableWidth * CGFloat(segment.fraction))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(trackColor)
-            )
+            .background(trackColor)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .frame(height: height)
     }

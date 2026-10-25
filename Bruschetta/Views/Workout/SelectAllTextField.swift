@@ -14,6 +14,7 @@ struct SelectAllTextField: UIViewRepresentable {
         textField.keyboardType = .decimalPad
         textField.textAlignment = .right
         textField.placeholder = placeholder
+        textField.addDoneAccessory()
         textField.borderStyle = .roundedRect
         textField.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
         return textField
@@ -49,5 +50,19 @@ struct SelectAllTextField: UIViewRepresentable {
         @objc func textChanged(_ textField: UITextField) {
             parent.value = Double(textField.text ?? "") ?? 0
         }
+    }
+}
+
+extension UITextField {
+    /// Number pads have no return key, so give them a toolbar with a Done button that dismisses the keyboard.
+    func addDoneAccessory() {
+        let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 0, height: 44))
+        toolbar.items = [
+            UIBarButtonItem(systemItem: .flexibleSpace),
+            UIBarButtonItem(systemItem: .done, primaryAction: UIAction { [weak self] _ in
+                self?.resignFirstResponder()
+            })
+        ]
+        inputAccessoryView = toolbar
     }
 }

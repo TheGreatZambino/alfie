@@ -14,6 +14,7 @@ struct SelectAllIntTextField: UIViewRepresentable {
         textField.keyboardType = .numberPad
         textField.textAlignment = .center
         textField.placeholder = placeholder
+        textField.addDoneAccessory()
         textField.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
         return textField
     }

@@ -8,6 +8,9 @@ final class Transaction {
     var note: String?
     var category: Category?
     @Attribute(.externalStorage) var receiptImageData: Data?
+    /// Shopping-list items this expense paid for.
+    @Relationship(deleteRule: .nullify, inverse: \ShoppingItem.transaction)
+    var shoppingItems: [ShoppingItem]? = []
 
     init(amount: Double, date: Date, note: String? = nil, category: Category? = nil, receiptImageData: Data? = nil) {
         self.amount = amount

@@ -37,6 +37,7 @@ struct AddTransactionView: View {
                     categoryChips
                     detailControls
                     noteField
+                    shoppingItemsSection
                     numericKeypad
                     saveButton
                 }
@@ -136,7 +137,7 @@ struct AddTransactionView: View {
     private var amountSection: some View {
         VStack(spacing: 6) {
             amountText.isEmpty
-                ? Text("$0").font(.system(size: 64, weight: .bold, design: .rounded)).foregroundStyle(Color.inkQuaternary)
+                ? Text("$0.00").font(.system(size: 64, weight: .bold, design: .rounded)).foregroundStyle(Color.inkQuaternary)
                 : styledAmount
 
             if let remaining {
@@ -268,6 +269,24 @@ struct AddTransactionView: View {
             }
     }
 
+    @ViewBuilder
+    private var shoppingItemsSection: some View {
+        if let items = editingTransaction?.shoppingItems, !items.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("From shopping list", systemImage: "cart")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.inkSecondary)
+                Text(items.map { $0.quantity > 1 ? "\($0.name) ×\($0.quantity)" : $0.name }.joined(separator: ", "))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.inkTertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Color.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
     // MARK: - Keypad
 
     private var numericKeypad: some View {
@@ -275,7 +294,7 @@ struct AddTransactionView: View {
             ["1", "2", "3"],
             ["4", "5", "6"],
             ["7", "8", "9"],
-            [".", "0", "delete.left"]
+            ["00", "0", "delete.left"]
         ]
         return VStack(spacing: 10) {
             ForEach(rows, id: \.self) { row in
@@ -289,14 +308,16 @@ struct AddTransactionView: View {
     }
 
     private func handleKey(_ key: String) {
+        var cents = Int(amountText.replacingOccurrences(of: ".", with: "")) ?? 0
         switch key {
         case "delete.left":
-            if !amountText.isEmpty { amountText.removeLast() }
-        case ".":
-            if !amountText.contains(".") { amountText.append(".") }
+            cents /= 10
         default:
-            amountText.append(key)
+            let next = cents * Int(pow(10, Double(key.count))) + (Int(key) ?? 0)
+            guard next <= 99_999_999 else { return }
+            cents = next
         }
+        amountText = String(format: "%d.%02d", cents / 100, cents % 100)
     }
 
     // MARK: - Save
