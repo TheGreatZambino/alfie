@@ -53,16 +53,26 @@ struct SelectAllTextField: UIViewRepresentable {
     }
 }
 
-extension UITextField {
-    /// Number pads have no return key, so give them a toolbar with a Done button that dismisses the keyboard.
-    func addDoneAccessory() {
+extension UIResponder {
+    /// Keyboard toolbar with the minimize-keyboard icon, matching the transaction notes field.
+    static func makeKeyboardAccessory(dismiss: @escaping () -> Void) -> UIToolbar {
         let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 0, height: 44))
         toolbar.items = [
             UIBarButtonItem(systemItem: .flexibleSpace),
-            UIBarButtonItem(systemItem: .done, primaryAction: UIAction { [weak self] _ in
-                self?.resignFirstResponder()
-            })
+            UIBarButtonItem(
+                image: UIImage(systemName: "keyboard.chevron.compact.down"),
+                primaryAction: UIAction { _ in dismiss() }
+            )
         ]
-        inputAccessoryView = toolbar
+        return toolbar
+    }
+}
+
+extension UITextField {
+    /// Number pads have no return key, so give them a toolbar with a minimize-keyboard button.
+    func addDoneAccessory() {
+        inputAccessoryView = Self.makeKeyboardAccessory { [weak self] in
+            self?.resignFirstResponder()
+        }
     }
 }

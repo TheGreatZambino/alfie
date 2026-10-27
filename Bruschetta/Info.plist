@@ -26,8 +26,6 @@
 	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.healthcare-fitness</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Alfie Track uses your camera to scan food barcodes and quickly log nutrition info.</string>
 	<key>NSFaceIDUsageDescription</key>
@@ -36,6 +34,8 @@
 	<string>Alfie Track pulls in your steps and cardio workouts so they can be credited towards your goals.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Alfie Track does not write any data to Health. This permission is required by the HealthKit API but is not used.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Alfie Track shows ads on Nutrition and Workouts. Allowing tracking helps show ads that are more relevant to you.</string>
 	<key>UIApplicationSceneManifest</key>

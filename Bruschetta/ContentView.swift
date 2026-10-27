@@ -108,6 +108,8 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
                 authManager.lock()
+            } else if newPhase == .active {
+                HealthKitManager.shared.notifyForegrounded()
             }
         }
     }

@@ -53,6 +53,7 @@ struct FoodResult: Identifiable {
     let sugarGrams: Double
     let fiberGrams: Double
     let sodiumMilligrams: Double
+    var nutriScore: String? = nil
 }
 
 /// One selectable way to log a food's amount — a label ("1 cup", "100 g") paired with
@@ -253,6 +254,7 @@ struct OFFProduct: Decodable {
     let serving_size: String?
     let serving_quantity: Double?
     let nutriments: OFFNutriments?
+    let nutriscore_grade: String?
 
     /// Defaults the logged amount to the product's labeled serving (e.g. "1 bar (28g)")
     /// rather than the 100g the underlying nutrient fields are normalized to — falling
@@ -277,7 +279,8 @@ struct OFFProduct: Decodable {
             fatGrams: nutriments.fat_serving ?? (nutriments.fat_100g ?? 0) * scale,
             sugarGrams: nutriments.sugars_serving ?? (nutriments.sugars_100g ?? 0) * scale,
             fiberGrams: nutriments.fiber_serving ?? (nutriments.fiber_100g ?? 0) * scale,
-            sodiumMilligrams: (nutriments.sodium_serving ?? (nutriments.sodium_100g ?? 0) * scale) * 1000
+            sodiumMilligrams: (nutriments.sodium_serving ?? (nutriments.sodium_100g ?? 0) * scale) * 1000,
+            nutriScore: FoodGrade(nutriScore: nutriscore_grade)?.letter.lowercased()
         )
     }
 

@@ -45,18 +45,10 @@ enum GoalStatusFormatter {
     }
 
     static func status(_ score: Double) -> String {
-        switch score {
-        case 80...: return "ahead"
-        case 50..<80: return "on pace"
-        default: return "behind"
-        }
+        WeekGrade(score: score).status.lowercased()
     }
 
     static func verdict(_ score: Double) -> String {
-        switch score {
-        case 80...: return "Strong week"
-        case 50..<80: return "Good week so far"
-        default: return "Slow week"
-        }
+        WeekGrade(score: score).verdict
     }
 }

@@ -16,6 +16,9 @@ struct FoodEntryRowView: View {
                     .foregroundStyle(Color.inkTertiary)
             }
             Spacer()
+            if let grade = entry.foodItem?.grade {
+                GradeBadge(grade: grade, size: 22)
+            }
             Text("\(Int(entry.calories).formatted())")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.ink)
@@ -35,7 +38,7 @@ struct FoodEntryRowView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.inkTertiary)
                     .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
+                    .tapTarget(layoutWidth: 28, layoutHeight: 28)
             }
         }
     }

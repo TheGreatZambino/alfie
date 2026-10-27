@@ -164,6 +164,7 @@ struct NutritionView: View {
                                 .foregroundStyle(Color.inkSecondary)
                         )
                         .frame(width: 36, height: 36)
+                        .tapTarget(layoutWidth: 36, layoutHeight: 36)
                 }
                 Button {
                     showSettings = true
@@ -177,6 +178,7 @@ struct NutritionView: View {
                                 .foregroundStyle(Color.inkSecondary)
                         )
                         .frame(width: 36, height: 36)
+                        .tapTarget(layoutWidth: 36, layoutHeight: 36)
                 }
             }
         }
@@ -194,6 +196,7 @@ struct NutritionView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.inkSecondary)
                     .frame(width: 32, height: 32)
+                    .tapTarget(layoutWidth: 32, layoutHeight: 32)
             }
 
             Spacer()
@@ -209,6 +212,7 @@ struct NutritionView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.inkTertiary)
                 }
+                .tapTarget(layoutHeight: 20)
             }
 
             Spacer()
@@ -220,6 +224,7 @@ struct NutritionView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Calendar.current.isDateInToday(selectedDate) ? Color.inkTertiary.opacity(0.4) : Color.inkSecondary)
                     .frame(width: 32, height: 32)
+                    .tapTarget(layoutWidth: 32, layoutHeight: 32)
             }
             .disabled(Calendar.current.isDateInToday(selectedDate))
         }
@@ -282,6 +287,23 @@ private struct TodayCard: View {
     private var calorieGoal: Double { goal?.calorieGoal ?? 2000 }
 
     var body: some View {
+        VStack(spacing: 14) {
+            summary
+            if let grade = entries.averageGrade {
+                Divider().overlay(Color.hairline)
+                HStack {
+                    Text("Today's eating grade")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.inkSecondary)
+                    Spacer()
+                    GradeBadge(grade: grade, size: 28)
+                }
+            }
+        }
+        .cardStyle()
+    }
+
+    private var summary: some View {
         HStack(spacing: 18) {
             RingGauge(progress: calorieGoal > 0 ? min(totalCalories / calorieGoal, 1) : 0, color: .food, lineWidth: 11, size: 118) {
                 VStack(spacing: 0) {
@@ -301,7 +323,6 @@ private struct TodayCard: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .cardStyle()
     }
 
     private func macroRow(label: String, value: Double, goal: Double) -> some View {
@@ -367,8 +388,8 @@ private struct WaterCard: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.food)
                         .frame(width: 40, height: 32)
-                        .background(Color.foodTint)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(Color.foodTint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .tapTarget(layoutWidth: 40, layoutHeight: 32)
                 }
                 .buttonStyle(.plain)
             }
@@ -441,8 +462,8 @@ private struct WaterCard: View {
                 .foregroundStyle(Color.food)
                 .frame(maxWidth: .infinity)
                 .frame(height: 32)
-                .background(Color.foodTint)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Color.foodTint, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .tapTarget(layoutHeight: 32)
         }
         .buttonStyle(.plain)
     }
@@ -529,6 +550,9 @@ private struct MealSection: View {
                     Text(meal.displayName.uppercased())
                         .sectionLabelStyle()
                     Spacer()
+                    if let grade = entries.averageGrade {
+                        GradeBadge(grade: grade, size: 20)
+                    }
                     Text("\(Int(mealTotal)) cal")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.inkTertiary)

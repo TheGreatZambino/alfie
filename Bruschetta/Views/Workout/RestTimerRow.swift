@@ -33,7 +33,7 @@ struct RestTimerRow: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 0) {
                 stepButton(systemName: "minus", delta: -Self.step)
 
                 if seconds > 0 && isEditing {
@@ -44,6 +44,8 @@ struct RestTimerRow: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(Color.training)
+                            .frame(width: 24, height: 32)
+                            .tapTarget(layoutWidth: 24, layoutHeight: 32)
                     }
                     .buttonStyle(.plain)
                 } else if seconds > 0 {
@@ -62,10 +64,8 @@ struct RestTimerRow: View {
 
                 stepButton(systemName: "plus", delta: Self.step)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.fill)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 2)
+            .background(Color.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             Spacer(minLength: 0)
 
@@ -95,7 +95,8 @@ struct RestTimerRow: View {
             Image(systemName: systemName)
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color.training)
-                .frame(width: 24, height: 24)
+                .frame(width: 32, height: 32)
+                .tapTarget(layoutWidth: 32, layoutHeight: 32)
         }
         .buttonStyle(.plain)
     }

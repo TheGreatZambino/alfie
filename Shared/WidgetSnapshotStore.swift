@@ -23,11 +23,13 @@ struct FinanceSnapshot: Codable, Equatable {
 struct NutritionSnapshot: Codable, Equatable {
     let caloriesToday: Double
     let calorieGoal: Double
+    var updatedAt: Date? = nil
 }
 
 struct WaterSnapshot: Codable, Equatable {
     let ouncesToday: Double
     let goalOunces: Double
+    var updatedAt: Date? = nil
 }
 
 struct WeekScoreSnapshot: Codable, Equatable {
@@ -42,6 +44,23 @@ struct WidgetWorkoutSnapshot: Codable, Equatable {
     var nutrition: NutritionSnapshot?
     var water: WaterSnapshot?
     var weekScore: WeekScoreSnapshot?
+}
+
+extension WidgetWorkoutSnapshot {
+    /// Daily slices (workouts, calories, water) are only meaningful for the day they were saved;
+    /// if the app hasn't been opened since, show them empty. Finances and the week score persist.
+    func resettingStaleDailyData(now: Date = Date(), calendar: Calendar = .current) -> WidgetWorkoutSnapshot {
+        var result = self
+        if let strength, !calendar.isDate(strength.date, inSameDayAs: now) { result.strength = nil }
+        if let cardio, !calendar.isDate(cardio.date, inSameDayAs: now) { result.cardio = nil }
+        if let n = nutrition, !calendar.isDate(n.updatedAt ?? .distantPast, inSameDayAs: now) {
+            result.nutrition = NutritionSnapshot(caloriesToday: 0, calorieGoal: n.calorieGoal, updatedAt: now)
+        }
+        if let w = water, !calendar.isDate(w.updatedAt ?? .distantPast, inSameDayAs: now) {
+            result.water = WaterSnapshot(ouncesToday: 0, goalOunces: w.goalOunces, updatedAt: now)
+        }
+        return result
+    }
 }
 
 /// Bridges today's workout/finance/nutrition summary from the main app (SwiftData + HealthKit)
@@ -72,6 +91,6 @@ enum WidgetSnapshotStore {
               let snapshot = try? JSONDecoder().decode(WidgetWorkoutSnapshot.self, from: data) else {
             return WidgetWorkoutSnapshot()
         }
-        return snapshot
+        return snapshot.resettingStaleDailyData()
     }
 }

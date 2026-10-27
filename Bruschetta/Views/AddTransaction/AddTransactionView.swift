@@ -100,6 +100,7 @@ struct AddTransactionView: View {
                             .foregroundStyle(Color.inkSecondary)
                     )
                     .frame(width: 36, height: 36)
+                    .tapTarget(layoutWidth: 36, layoutHeight: 36)
             }
 
             Spacer()
@@ -122,6 +123,7 @@ struct AddTransactionView: View {
                                 .foregroundStyle(Color.red)
                         )
                         .frame(width: 36, height: 36)
+                        .tapTarget(layoutWidth: 36, layoutHeight: 36)
                 }
             } else {
                 Color.clear.frame(width: 36, height: 36)

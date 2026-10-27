@@ -230,6 +230,9 @@ private struct LogFoodDetailView: View {
         _selectedServingOption = State(initialValue: foodItem.servingOptions.first ?? ServingOption(description: foodItem.servingDescription, grams: grams))
     }
 
+    private var foodGrade: FoodGrade? { existingFoodItem?.grade ?? result?.grade }
+    private var isGradeEstimated: Bool { existingFoodItem?.isGradeEstimated ?? result?.isGradeEstimated ?? true }
+
     private var name: String { existingFoodItem?.name ?? result?.name ?? "" }
     private var caloriesPerServing: Double { existingFoodItem?.calories ?? result?.calories ?? 0 }
     /// The serving `calories`/macros are calibrated against — i.e. the food's original,
@@ -351,6 +354,18 @@ private struct LogFoodDetailView: View {
                 }
 
                 Section {
+                    if let grade = foodGrade {
+                        HStack {
+                            Text("Food Grade")
+                            Spacer()
+                            if isGradeEstimated {
+                                Text("Estimated")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            GradeBadge(grade: grade)
+                        }
+                    }
                     HStack {
                         Text("Calories")
                         Spacer()
@@ -394,6 +409,7 @@ private struct LogFoodDetailView: View {
                 calories: result.calories, proteinGrams: result.proteinGrams, carbsGrams: result.carbsGrams, fatGrams: result.fatGrams,
                 sugarGrams: result.sugarGrams, fiberGrams: result.fiberGrams, sodiumMilligrams: result.sodiumMilligrams
             )
+            foodItem.nutriScoreRaw = result.nutriScore
             modelContext.insert(foodItem)
         } else {
             return

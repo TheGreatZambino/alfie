@@ -7,37 +7,44 @@ enum CalorieCalcSex: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Lifestyle categories from FAO/WHO/UNU, Human energy requirements (2004), Table 5.3.
+/// Activity levels and BMR multipliers from NASM's calorie calculator guide.
 /// Raw values are kept stable for existing @AppStorage selections.
 enum CalorieCalcActivityLevel: String, CaseIterable, Identifiable {
     case sedentary = "low"
-    case active = "medium"
-    case vigorous = "high"
+    case light = "light"
+    case moderate = "medium"
+    case veryActive = "high"
+    case superActive = "super"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .sedentary: return "Sedentary or Light"
-        case .active: return "Active or Moderately Active"
-        case .vigorous: return "Vigorous"
+        case .sedentary: return "Sedentary"
+        case .light: return "Lightly Active"
+        case .moderate: return "Moderately Active"
+        case .veryActive: return "Very Active"
+        case .superActive: return "Super Active"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .sedentary: return "Little to light activity · PAL range 1.40–1.69"
-        case .active: return "Regular moderate activity · PAL range 1.70–1.99"
-        case .vigorous: return "Frequent intense activity · PAL range 2.00–2.40"
+        case .sedentary: return "Little to no exercise · BMR × 1.2"
+        case .light: return "Light exercise/sports 1–3 days/week · BMR × 1.375"
+        case .moderate: return "Moderate exercise/sports 3–5 days/week · BMR × 1.55"
+        case .veryActive: return "Hard exercise/sports 6–7 days/week · BMR × 1.725"
+        case .superActive: return "Very hard exercise & physical job or 2x training · BMR × 1.9"
         }
     }
 
-    /// Midpoint of the report's PAL range for the category.
     var multiplier: Double {
         switch self {
-        case .sedentary: return 1.55
-        case .active: return 1.85
-        case .vigorous: return 2.20
+        case .sedentary: return 1.2
+        case .light: return 1.375
+        case .moderate: return 1.55
+        case .veryActive: return 1.725
+        case .superActive: return 1.9
         }
     }
 }
@@ -80,6 +87,42 @@ struct CalorieCalculatorView: View {
         return sex == .male ? base + 5 : base - 161
     }
 
+    private var heightInchesTotal: Double { Double(heightFeet * 12 + heightInches) }
+
+    /// BMI from pounds and inches.
+    private var bmi: Double { Double(weightPounds) * 703 / (heightInchesTotal * heightInchesTotal) }
+
+    private var bmiCategory: String {
+        switch bmi {
+        case ..<18.5: return "Underweight"
+        case ..<25: return "Healthy"
+        case ..<30: return "Overweight"
+        default: return "Obese"
+        }
+    }
+
+    /// Weights (lb) for BMI 18.5 and 24.9 at the entered height.
+    private var healthyRange: (low: Int, high: Int) {
+        let squared = heightInchesTotal * heightInchesTotal
+        return (Int((18.5 * squared / 703).rounded()), Int((24.9 * squared / 703).rounded()))
+    }
+
+    /// Devine ideal body weight (lb): 50 kg (male) or 45.5 kg (female) plus 2.3 kg per inch over 5 ft.
+    private var idealWeight: Int {
+        let kg = (sex == .male ? 50.0 : 45.5) + 2.3 * max(heightInchesTotal - 60, 0)
+        return Int((kg / 0.45359237).rounded())
+    }
+
+    private var weightCheckFooter: String {
+        if bmi >= 25, goal != .lose {
+            return "Your weight is above the healthy range for your height. Choosing Lose Weight sets a calorie target for gradual loss."
+        }
+        if bmi < 18.5, goal != .gain {
+            return "Your weight is below the healthy range for your height. Choosing Gain Weight sets a calorie target for gradual gain."
+        }
+        return "Based on your height and sex. BMI is a general screening measure and doesn't account for muscle mass."
+    }
+
     private var maintenanceCalories: Double { bmr * activityLevel.multiplier }
     private var targetCalories: Double { maintenanceCalories + goal.calorieAdjustment }
 
@@ -98,36 +141,6 @@ struct CalorieCalculatorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Link(destination: URL(string: "https://doi.org/10.1093/ajcn/51.2.241")!) {
-                        sourceRow(
-                            title: "Mifflin MD, et al. A new predictive equation for resting energy expenditure in healthy individuals. Am J Clin Nutr. 1990;51(2):241–247.",
-                            detail: "Basal metabolic rate formula"
-                        )
-                    }
-                    Link(destination: URL(string: "https://pubmed.ncbi.nlm.nih.gov/2305711/")!) {
-                        sourceRow(
-                            title: "PubMed: Mifflin et al., 1990",
-                            detail: "Abstract and citation record"
-                        )
-                    }
-                    Link(destination: URL(string: "https://www.fao.org/4/Y5686E/y5686e00.htm")!) {
-                        sourceRow(
-                            title: "FAO/WHO/UNU. Human energy requirements: Report of a Joint Expert Consultation. FAO Food and Nutrition Technical Report Series 1. Rome, 2004.",
-                            detail: "Physical activity level ranges (Table 5.3)"
-                        )
-                    }
-                    Link(destination: URL(string: "https://www.mayoclinic.org/healthy-lifestyle/weight-loss/in-depth/weight-loss/art-20047752")!) {
-                        sourceRow(
-                            title: "Mayo Clinic: Weight loss — 6 strategies for success",
-                            detail: "±500 cal/day adjustment for about 1 lb/week"
-                        )
-                    }
-                } header: {
-                    Text("Sources")
-                } footer: {
-                    Text("Total daily energy is estimated as BMR × physical activity level (PAL). Activity categories and PAL ranges are from Table 5.3 of the FAO/WHO/UNU report; the midpoint of each range is used.")
-                }
                 Section("About You") {
                     Picker("Sex", selection: $sex) {
                         ForEach(CalorieCalcSex.allCases) { Text($0.rawValue).tag($0) }
@@ -181,6 +194,31 @@ struct CalorieCalculatorView: View {
 
                 Section {
                     HStack {
+                        Text("BMI")
+                        Spacer()
+                        Text(String(format: "%.1f · %@", bmi, bmiCategory))
+                            .foregroundStyle(Color.inkSecondary)
+                    }
+                    HStack {
+                        Text("Healthy Range")
+                        Spacer()
+                        Text("\(healthyRange.low)–\(healthyRange.high) lb")
+                            .foregroundStyle(Color.inkSecondary)
+                    }
+                    HStack {
+                        Text("Ideal Weight")
+                        Spacer()
+                        Text("\(idealWeight) lb")
+                            .foregroundStyle(Color.inkSecondary)
+                    }
+                } header: {
+                    Text("Weight Check")
+                } footer: {
+                    Text(weightCheckFooter)
+                }
+
+                Section {
+                    HStack {
                         Text("Maintenance")
                         Spacer()
                         Text("\(Int(maintenanceCalories.rounded())) cal/day")
@@ -197,6 +235,29 @@ struct CalorieCalculatorView: View {
                     Text("Result")
                 } footer: {
                     Text("Estimated using the Mifflin-St Jeor formula. This is a starting point — adjust based on how your weight trends over a few weeks. This is not medical advice; consult a healthcare professional before changing your diet.")
+                }
+
+                Section {
+                    Link(destination: URL(string: "https://www.nasm.org/resources/calorie-calculator")!) {
+                        sourceRow(
+                            title: "NASM: Calorie Calculator",
+                            detail: "Mifflin-St Jeor BMR and activity multipliers"
+                        )
+                    }
+                    Link(destination: URL(string: "https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html")!) {
+                        sourceRow(
+                            title: "CDC: Adult BMI Categories",
+                            detail: "Healthy range (BMI 18.5–24.9) and weight categories"
+                        )
+                    }
+                    Link(destination: URL(string: "https://en.wikipedia.org/wiki/Ideal_body_weight")!) {
+                        sourceRow(
+                            title: "Devine BR. Postgrad Med. 1974;40:A-95.",
+                            detail: "Ideal weight by height and sex"
+                        )
+                    }
+                } header: {
+                    Text("Sources")
                 }
             }
             .alfieListStyle()

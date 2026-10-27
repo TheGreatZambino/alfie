@@ -293,6 +293,7 @@ private struct ExerciseCard: View {
                         .frame(width: 30, height: 30)
                         .background(Color(.tertiarySystemBackground))
                         .clipShape(Circle())
+                        .tapTarget(layoutWidth: 30, layoutHeight: 30)
                 }
             }
 
@@ -400,6 +401,8 @@ private struct SetRow: View {
                 Image(systemName: "minus.circle.fill")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .tapTarget(layoutWidth: 24, layoutHeight: 24)
             }
             .buttonStyle(.plain)
         }

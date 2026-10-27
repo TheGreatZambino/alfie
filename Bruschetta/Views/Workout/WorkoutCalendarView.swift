@@ -30,7 +30,7 @@ struct WorkoutCalendarView: View {
         }
         .navigationTitle("Workout Calendar")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: displayedMonth) {
+        .task(id: CalendarLoadKey(month: displayedMonth, version: health.dataVersion, authorized: health.isAuthorized)) {
             await loadMonth()
         }
     }
@@ -41,6 +41,7 @@ struct WorkoutCalendarView: View {
                 changeMonth(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
+                    .tapTarget(layoutWidth: 24, layoutHeight: 24)
             }
             .disabled(!canGoToPreviousMonth || isLoading)
 
@@ -55,6 +56,7 @@ struct WorkoutCalendarView: View {
                 changeMonth(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
+                    .tapTarget(layoutWidth: 24, layoutHeight: 24)
             }
             .disabled(isCurrentMonth || isLoading)
         }
@@ -276,4 +278,10 @@ private struct SummaryTile: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.systemGray6)))
     }
+}
+
+private struct CalendarLoadKey: Equatable {
+    let month: Date
+    let version: Int
+    let authorized: Bool
 }

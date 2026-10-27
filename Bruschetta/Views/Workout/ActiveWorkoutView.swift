@@ -96,6 +96,8 @@ struct ActiveWorkoutView: View {
     @State private var focusedEntryID: UUID?
     /// When set, a rest countdown is running and ends at this date.
     @State private var restEndDate: Date?
+    /// Length of the current rest, for the banner's progress bar; grows when the user adds time.
+    @State private var restTotal: TimeInterval = 0
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -178,12 +180,14 @@ struct ActiveWorkoutView: View {
                 header
 
                 if let restEndDate {
-                    RestCountdownBanner(endDate: restEndDate, now: now) { delta in
+                    RestCountdownBanner(endDate: restEndDate, total: restTotal) { delta in
                         let newEnd = restEndDate.addingTimeInterval(TimeInterval(delta))
-                        self.restEndDate = newEnd > Date() ? newEnd : nil
+                        restTotal = max(1, restTotal + TimeInterval(delta))
+                        withAnimation(.snappy) { self.restEndDate = newEnd > Date() ? newEnd : nil }
                     } onSkip: {
-                        self.restEndDate = nil
+                        withAnimation(.snappy) { self.restEndDate = nil }
                     }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 if isReordering {
@@ -308,6 +312,7 @@ struct ActiveWorkoutView: View {
                         .foregroundStyle(isReordering ? Color.training : .white)
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(isReordering ? Color.white : .white.opacity(0.18)))
+                        .tapTarget(layoutWidth: 36, layoutHeight: 28)
                 }
                 .opacity(draftEntries.count > 1 ? 1 : 0.5)
                 .disabled(draftEntries.count < 2)
@@ -321,6 +326,7 @@ struct ActiveWorkoutView: View {
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(.white.opacity(0.18)))
+                        .tapTarget(layoutWidth: 36, layoutHeight: 28)
                 }
                 .opacity(totalSets > 0 ? 1 : 0.5)
                 .disabled(totalSets == 0)
@@ -334,6 +340,7 @@ struct ActiveWorkoutView: View {
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(.white.opacity(0.18)))
+                        .tapTarget(layoutWidth: 36, layoutHeight: 28)
                 }
 
                 Button("Finish") {
@@ -381,7 +388,10 @@ struct ActiveWorkoutView: View {
     }
 
     private func startRest(_ seconds: Int) {
-        restEndDate = seconds > 0 ? Date().addingTimeInterval(TimeInterval(seconds)) : nil
+        restTotal = TimeInterval(seconds)
+        withAnimation(.snappy) {
+            restEndDate = seconds > 0 ? Date().addingTimeInterval(TimeInterval(seconds)) : nil
+        }
         now = Date()
     }
 
@@ -523,6 +533,7 @@ private struct ExerciseCard: View {
                         .frame(width: 30, height: 30)
                         .background(Color.fill)
                         .clipShape(Circle())
+                        .tapTarget(layoutWidth: 30, layoutHeight: 30)
                 }
             }
 
@@ -658,6 +669,8 @@ private struct ActiveSetRow: View {
                 Image(systemName: "minus.circle.fill")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .tapTarget(layoutWidth: 24, layoutHeight: 24)
             }
             .buttonStyle(.plain)
         }
@@ -680,6 +693,10 @@ private struct ActiveSetRow: View {
                 }
             }
             .frame(width: 26, height: 26)
+            // Grow the tap target to 44pt without changing the row's layout.
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .padding(-9)
         }
         .buttonStyle(.plain)
     }
@@ -688,33 +705,39 @@ private struct ActiveSetRow: View {
 /// Countdown shown while resting between sets; tap -15/+15 to adjust or skip.
 private struct RestCountdownBanner: View {
     let endDate: Date
-    let now: Date
+    let total: TimeInterval
     let onAdjust: (Int) -> Void
     let onSkip: () -> Void
 
-    private var remaining: Int { max(0, Int(ceil(endDate.timeIntervalSince(now)))) }
-
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "timer")
-                .foregroundStyle(Color.training)
-            Text("Rest")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.ink)
-            Text(RestTimerRow.label(remaining))
-                .font(.system(size: 20, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(Color.training)
-            Spacer()
-            Button("-15") { onAdjust(-RestTimerRow.step) }
-            Button("+15") { onAdjust(RestTimerRow.step) }
-            Button("Skip", action: onSkip)
+        TimelineView(.periodic(from: .now, by: 0.25)) { context in
+            let left = max(0, endDate.timeIntervalSince(context.date))
+            let remaining = Int(ceil(left))
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "timer")
+                        .foregroundStyle(Color.training)
+                    Text("Rest")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.ink)
+                    Text(RestTimerRow.label(remaining))
+                        .font(.system(size: 22, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.training)
+                    Spacer()
+                    Button("-15") { onAdjust(-RestTimerRow.step) }
+                    Button("+15") { onAdjust(RestTimerRow.step) }
+                    Button("Skip", action: onSkip)
+                }
+                ProgressView(value: total > 0 ? min(1, left / total) : 0)
+                    .tint(.training)
+            }
+            .font(.subheadline.weight(.semibold))
+            .tint(.training)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(Color.training.opacity(0.12))
         }
-        .font(.subheadline.weight(.semibold))
-        .tint(.training)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(Color.card)
     }
 }
 

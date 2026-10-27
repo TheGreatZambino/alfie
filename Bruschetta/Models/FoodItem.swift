@@ -42,6 +42,8 @@ final class FoodItem {
     var sugarGrams: Double = 0
     var fiberGrams: Double = 0
     var sodiumMilligrams: Double = 0
+    /// Official Nutri-Score letter (a–e) from Open Food Facts, when available.
+    var nutriScoreRaw: String?
 
     var isUserCreated: Bool = false
     var createdAt: Date = Date()

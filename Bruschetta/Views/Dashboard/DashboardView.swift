@@ -126,6 +126,7 @@ struct DashboardView: View {
                     .foregroundStyle(Color.inkSecondary)
             )
             .frame(width: 36, height: 36)
+            .tapTarget(layoutWidth: 36, layoutHeight: 36)
     }
 
     private func openSavingsSettings() {
@@ -154,7 +155,7 @@ private struct BalanceCard: View {
 
             Text(viewModel.remaining, format: .currency(code: "USD"))
                 .font(.heroNumeralScreen)
-                .foregroundStyle(.white)
+                .foregroundStyle(viewModel.remaining < 0 ? negativeColor : .white)
 
             SegmentedBar(
                 segments: [
@@ -171,7 +172,10 @@ private struct BalanceCard: View {
                 legendItem(color: .white.opacity(0.22), label: "Left")
             }
 
-            Text("\(viewModel.incomeForPeriod, format: .currency(code: "USD").precision(.fractionLength(0))) in · \(viewModel.billAllocationPerPaycheck + viewModel.totalSpending, format: .currency(code: "USD").precision(.fractionLength(0))) committed · \(perDayToPayday, format: .currency(code: "USD").precision(.fractionLength(0)))/day to payday")
+            (Text("\(viewModel.incomeForPeriod, format: .currency(code: "USD").precision(.fractionLength(0))) in · \(viewModel.billAllocationPerPaycheck + viewModel.totalSpending, format: .currency(code: "USD").precision(.fractionLength(0))) committed · ")
+                + Text("\(perDayToPayday, format: .currency(code: "USD").precision(.fractionLength(0)))/day")
+                    .foregroundColor(perDayToPayday < 0 ? negativeColor : .white.opacity(0.85))
+                + Text(" to payday"))
                 .font(.system(size: 14))
                 .foregroundStyle(.white.opacity(0.85))
         }
@@ -197,6 +201,8 @@ private struct BalanceCard: View {
             }
         }
     }
+
+    private let negativeColor = Color(hex: "#FF6B6B")
 
     private var total: Double { max(viewModel.incomeForPeriod, 1) }
     private var committedFraction: Double { viewModel.billAllocationPerPaycheck / total }

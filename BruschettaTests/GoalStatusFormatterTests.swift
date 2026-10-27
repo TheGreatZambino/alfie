@@ -4,19 +4,28 @@ import Testing
 struct GoalStatusFormatterTests {
     @Test
     func statusThresholds() {
-        #expect(GoalStatusFormatter.status(80) == "ahead")
         #expect(GoalStatusFormatter.status(100) == "ahead")
-        #expect(GoalStatusFormatter.status(79.9) == "on pace")
-        #expect(GoalStatusFormatter.status(50) == "on pace")
-        #expect(GoalStatusFormatter.status(49.9) == "behind")
+        #expect(GoalStatusFormatter.status(90) == "ahead")
+        #expect(GoalStatusFormatter.status(89.9) == "strong")
+        #expect(GoalStatusFormatter.status(75) == "strong")
+        #expect(GoalStatusFormatter.status(74.9) == "on pace")
+        #expect(GoalStatusFormatter.status(55) == "on pace")
+        #expect(GoalStatusFormatter.status(54.9) == "slipping")
+        #expect(GoalStatusFormatter.status(35) == "slipping")
+        #expect(GoalStatusFormatter.status(34.9) == "behind")
         #expect(GoalStatusFormatter.status(0) == "behind")
     }
 
     @Test
     func verdictThresholds() {
-        #expect(GoalStatusFormatter.verdict(80) == "Strong week")
-        #expect(GoalStatusFormatter.verdict(79.9) == "Good week so far")
-        #expect(GoalStatusFormatter.verdict(49.9) == "Slow week")
+        #expect(GoalStatusFormatter.verdict(90) == "Outstanding week")
+        #expect(GoalStatusFormatter.verdict(89.9) == "Strong week")
+        #expect(GoalStatusFormatter.verdict(75) == "Strong week")
+        #expect(GoalStatusFormatter.verdict(74.9) == "Good week so far")
+        #expect(GoalStatusFormatter.verdict(55) == "Good week so far")
+        #expect(GoalStatusFormatter.verdict(54.9) == "Slow week")
+        #expect(GoalStatusFormatter.verdict(35) == "Slow week")
+        #expect(GoalStatusFormatter.verdict(34.9) == "Rough week")
     }
 
     @Test

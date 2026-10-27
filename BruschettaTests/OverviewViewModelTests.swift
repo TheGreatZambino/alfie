@@ -38,7 +38,8 @@ struct OverviewViewModelTests {
         transactions: [Transaction] = [],
         savingsAccounts: [SavingsAccount] = [],
         nutritionEntries: [NutritionEntry] = [],
-        nutritionGoal: NutritionGoals? = nil
+        nutritionGoal: NutritionGoals? = nil,
+        now: Date = Date()
     ) {
         viewModel.refresh(
             sessions: sessions,
@@ -49,8 +50,16 @@ struct OverviewViewModelTests {
             savingsAccounts: savingsAccounts,
             nutritionEntries: nutritionEntries,
             nutritionGoal: nutritionGoal,
-            health: HealthKitManager.shared
+            health: HealthKitManager.shared,
+            now: now
         )
+    }
+
+    /// Last moment of the current week, so goal pacing expects the full weekly goal and the
+    /// tests below don't depend on which weekday they run on.
+    private func endOfWeek() -> Date {
+        let week = currentWeek()
+        return Calendar.current.date(byAdding: .day, value: 7, to: week.start)?.addingTimeInterval(-1) ?? Date()
     }
 
     // MARK: - Expense score
@@ -129,7 +138,7 @@ struct OverviewViewModelTests {
         sessions.forEach(context.insert)
 
         let viewModel = OverviewViewModel()
-        refresh(viewModel, sessions: sessions, workoutGoals: goals)
+        refresh(viewModel, sessions: sessions, workoutGoals: goals, now: endOfWeek())
 
         // Strength goal fully met (progress 1); cardio and steps stay at 0 progress since
         // HealthKit is unauthorized in tests. workoutScore = (1 + 0 + 0) / 3 * 100.
@@ -145,7 +154,7 @@ struct OverviewViewModelTests {
         sessions.forEach(context.insert)
 
         let viewModel = OverviewViewModel()
-        refresh(viewModel, sessions: sessions, workoutGoals: goals)
+        refresh(viewModel, sessions: sessions, workoutGoals: goals, now: endOfWeek())
 
         // Doubling the goal's worth of sessions shouldn't push progress past 1.
         #expect(abs(viewModel.workoutScore - 100.0 / 3.0) < 0.0001)
@@ -160,7 +169,7 @@ struct OverviewViewModelTests {
         sessions.forEach(context.insert)
 
         let viewModel = OverviewViewModel()
-        refresh(viewModel, sessions: sessions, workoutGoals: goals)
+        refresh(viewModel, sessions: sessions, workoutGoals: goals, now: endOfWeek())
 
         // strengthProgress = 2/4 = 0.5; workoutScore = (0.5 + 0 + 0) / 3 * 100
         #expect(abs(viewModel.workoutScore - 50.0 / 3.0) < 0.0001)
@@ -174,6 +183,7 @@ struct OverviewViewModelTests {
         let (weekStart, daysElapsed) = currentWeek()
         let goal = NutritionGoals(calorieGoal: 2000)
         let foodItem = FoodItem(name: "Salad", source: .custom, calories: 400)
+        foodItem.nutriScoreRaw = "a"
         context.insert(goal)
         context.insert(foodItem)
 
@@ -199,6 +209,7 @@ struct OverviewViewModelTests {
         let (weekStart, daysElapsed) = currentWeek()
         let goal = NutritionGoals(calorieGoal: 1500)
         let foodItem = FoodItem(name: "Feast", source: .custom, calories: 2500)
+        foodItem.nutriScoreRaw = "e"
         context.insert(goal)
         context.insert(foodItem)
 
@@ -217,7 +228,86 @@ struct OverviewViewModelTests {
         #expect(viewModel.calorieScore == 0)
     }
 
+    @Test
+    func calorieScoreBlendsCaloriesAndGrade() throws {
+        let context = try makeContext()
+        let (weekStart, daysElapsed) = currentWeek()
+        let goal = NutritionGoals(calorieGoal: 2000)
+        let foodItem = FoodItem(name: "Cereal", source: .custom, calories: 400)
+        foodItem.nutriScoreRaw = "c"
+        context.insert(goal)
+        context.insert(foodItem)
+
+        var entries: [NutritionEntry] = []
+        for offset in 0..<daysElapsed {
+            let day = Calendar.current.date(byAdding: .day, value: offset, to: weekStart)!
+            let entry = NutritionEntry(date: day, mealType: .lunch, quantity: 1, foodItem: foodItem)
+            context.insert(entry)
+            entries.append(entry)
+        }
+
+        let viewModel = OverviewViewModel()
+        refresh(viewModel, nutritionEntries: entries, nutritionGoal: goal)
+
+        // Under goal (1.0) and a C day (0.5) blend to 0.75 for every tracked day.
+        #expect(abs(viewModel.calorieScore - 85) < 0.0001)
+    }
+
+    @Test
+    func dailyNutritionScoreBlendsGoalAndGrade() {
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 1800, goal: 2000, grade: .a) == 1)
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 1800, goal: 2000, grade: .e) == 0.5)
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 2500, goal: 2000, grade: .a) == 0.5)
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 2500, goal: 2000, grade: .e) == 0)
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 1800, goal: 2000, grade: nil) == 1)
+        // A small overshoot fades the calorie half instead of zeroing it: 10% over = 60% credit.
+        #expect(abs(OverviewViewModel.dailyNutritionScore(calories: 2200, goal: 2000, grade: nil) - 0.6) < 0.0001)
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 1800, goal: 2000, grade: .c) == 0.85)
+        #expect(OverviewViewModel.dailyNutritionScore(calories: 2500, goal: 2000, grade: nil) == 0)
+    }
+
     // MARK: - Overall score
+
+    @Test
+    func pacedProgressExpectsOnlyWholeSessionsDueSoFar() {
+        // 3 sessions/week: nothing due on day 2 (3 * 2/7 = 0.86 -> 0), so no penalty yet.
+        #expect(OverviewViewModel.pacedProgress(actual: 0, goal: 3, fractionElapsed: 2.0 / 7, wholeUnits: true) == 1)
+        // By day 5, 2 are due; having done 1 is half credit.
+        #expect(OverviewViewModel.pacedProgress(actual: 1, goal: 3, fractionElapsed: 5.0 / 7, wholeUnits: true) == 0.5)
+        #expect(OverviewViewModel.pacedProgress(actual: 3, goal: 3, fractionElapsed: 5.0 / 7, wholeUnits: true) == 1)
+    }
+
+    @Test
+    func pacedProgressScalesContinuousGoalsByDaysElapsed() {
+        // Halfway through the week, 35,000 of 70,000 steps is exactly on pace.
+        #expect(abs(OverviewViewModel.pacedProgress(actual: 35000, goal: 70000, fractionElapsed: 0.5) - 1) < 0.0001)
+        #expect(abs(OverviewViewModel.pacedProgress(actual: 17500, goal: 70000, fractionElapsed: 0.5) - 0.5) < 0.0001)
+        #expect(OverviewViewModel.pacedProgress(actual: 10, goal: 0, fractionElapsed: 0.5) == 1)
+    }
+
+    @Test
+    func pillarSummaryPointsAtWeakestComponent() {
+        let components = [
+            ScoreComponent(name: "Strength sessions", progress: 1, detail: "3 of 3 this week"),
+            ScoreComponent(name: "Steps", progress: 0.4, detail: "20,000 of 50,000 this week")
+        ]
+        let summary = PillarSummary.make(score: 70, components: components)
+        #expect(summary.headline.hasPrefix("On pace"))
+        #expect(summary.focus == "Biggest opportunity: steps (20,000 of 50,000 this week).")
+    }
+
+    @Test
+    func pillarSummaryHasNoFocusWhenEverythingIsOnTarget() {
+        let components = [ScoreComponent(name: "Steps", progress: 1, detail: "done")]
+        #expect(PillarSummary.make(score: 95, components: components).focus == nil)
+    }
+
+    @Test
+    func weekSummaryNamesStrongestAndWeakestPillar() {
+        let text = WeekSummary.make(pillars: [("Finances", 90), ("Workouts", 40), ("Nutrition", 70)])
+        #expect(text == "Finances is leading the way; workouts is pulling your score down the most.")
+        #expect(WeekSummary.make(pillars: [("Finances", 80)]) == "")
+    }
 
     @Test
     func overallScoreAveragesTheThreePillars() throws {
@@ -233,6 +323,7 @@ struct OverviewViewModelTests {
 
         let nutritionGoal = NutritionGoals(calorieGoal: 2000)
         let foodItem = FoodItem(name: "Salad", source: .custom, calories: 400)
+        foodItem.nutriScoreRaw = "a"
         let entries = (0..<daysElapsed).map { offset -> NutritionEntry in
             let day = Calendar.current.date(byAdding: .day, value: offset, to: weekStart)!
             return NutritionEntry(date: day, mealType: .lunch, quantity: 1, foodItem: foodItem)
@@ -259,9 +350,11 @@ struct OverviewViewModelTests {
             nutritionGoal: nutritionGoal
         )
 
-        // expenseScore = 100, workoutScore = 100/3, calorieScore = 100 (all set up above).
+        // expenseScore = 100 and calorieScore = 100 (set up above). workoutScore is paced to
+        // the weekday, so it is only checked through the average.
         let expected = (viewModel.workoutScore + viewModel.expenseScore + viewModel.calorieScore) / 3
         #expect(viewModel.overallScore == expected)
-        #expect(abs(viewModel.overallScore - (100.0 + 100.0 / 3.0 + 100.0) / 3.0) < 0.0001)
+        #expect(viewModel.expenseScore == 100)
+        #expect(viewModel.calorieScore == 100)
     }
 }

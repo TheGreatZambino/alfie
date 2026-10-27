@@ -20,6 +20,7 @@ struct OverviewView: View {
     @ObservedObject private var health = HealthKitManager.shared
     @StateObject private var viewModel = OverviewViewModel()
     @State private var showSettings = false
+    @State private var showBreakdown = false
     @State private var showFeedback = false
     @State private var showMailUnavailableAlert = false
     @State private var feedbackResult: Result<MFMailComposeResult, Error>?
@@ -57,7 +58,7 @@ struct OverviewView: View {
         VStack(spacing: 14) {
             header
 
-            WeekTriadCard(viewModel: viewModel, trackedModules: trackedModules, selectedTab: $selectedTab)
+            WeekTriadCard(viewModel: viewModel, trackedModules: trackedModules, selectedTab: $selectedTab, showBreakdown: { showBreakdown = true })
 
             PillarRowsCard(viewModel: viewModel, caloriesToday: caloriesToday, daysToPayday: daysToPayday, trackedModules: trackedModules, selectedTab: $selectedTab)
         }
@@ -73,6 +74,9 @@ struct OverviewView: View {
         .background(Color.paper)
         .toolbar(.hidden, for: .navigationBar)
         .tint(.ink)
+        .sheet(isPresented: $showBreakdown) {
+            ScoreBreakdownView(viewModel: viewModel, trackedModules: trackedModules)
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
@@ -91,7 +95,7 @@ struct OverviewView: View {
     var body: some View {
         NavigationStack {
             screenBody
-                .modifier(RefreshOnChange(sessions: sessions, transactions: transactions, transactionsSnapshot: transactionsSnapshot, nutritionEntries: nutritionEntries, incomes: incomes, bills: bills, savingsAccounts: savingsAccounts, workoutGoals: workoutGoals, nutritionGoals: nutritionGoals, nutritionCalorieGoal: nutritionGoals.first?.calorieGoal, nutritionWaterGoal: nutritionGoals.first?.waterGoalOunces, nutritionWaterTrackingEnabled: nutritionGoals.first?.isWaterTrackingEnabled, healthAuthorized: health.isAuthorized, refresh: refresh))
+                .modifier(RefreshOnChange(sessions: sessions, transactions: transactions, transactionsSnapshot: transactionsSnapshot, nutritionEntries: nutritionEntries, incomes: incomes, bills: bills, savingsAccounts: savingsAccounts, workoutGoals: workoutGoals, nutritionGoals: nutritionGoals, nutritionCalorieGoal: nutritionGoals.first?.calorieGoal, nutritionWaterGoal: nutritionGoals.first?.waterGoalOunces, nutritionWaterTrackingEnabled: nutritionGoals.first?.isWaterTrackingEnabled, healthAuthorized: health.isAuthorized, healthDataVersion: health.dataVersion, refresh: refresh))
         }
     }
 
@@ -100,10 +104,13 @@ struct OverviewView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(dateEyebrowText)
                     .eyebrowStyle()
-                Text(verdictText)
-                    .font(.screenHeadline)
-                    .foregroundStyle(Color.ink)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(verdictText)
+                        .font(.screenHeadline)
+                        .foregroundStyle(Color.ink)
+                        .lineLimit(1)
+                    GradeBadge(grade: WeekGrade(score: viewModel.overallScore).foodGrade, size: 24)
+                }
             }
 
             Spacer()
@@ -118,6 +125,7 @@ struct OverviewView: View {
                             .foregroundStyle(Color.inkSecondary)
                     )
                     .frame(width: 36, height: 36)
+                    .tapTarget(layoutWidth: 36, layoutHeight: 36)
             }
             .padding(.trailing, 8)
 
@@ -131,6 +139,7 @@ struct OverviewView: View {
                             .foregroundStyle(Color.inkSecondary)
                     )
                     .frame(width: 36, height: 36)
+                    .tapTarget(layoutWidth: 36, layoutHeight: 36)
             }
         }
         .frame(minHeight: 84)
@@ -143,11 +152,7 @@ struct OverviewView: View {
     }
 
     private var verdictText: String {
-        switch viewModel.overallScore {
-        case 80...: return "Strong week"
-        case 50..<80: return "Good week so far"
-        default: return "Slow week"
-        }
+        WeekGrade(score: viewModel.overallScore).verdict
     }
 
     private func presentFeedback() {
@@ -192,10 +197,10 @@ struct OverviewView: View {
             snapshot.finance = income != nil
                 ? FinanceSnapshot(incomeThisPeriod: viewModel.incomeThisPeriod, remainingThisPeriod: viewModel.remainingThisPeriod, periodEnd: periodEnd)
                 : nil
-            snapshot.nutrition = NutritionSnapshot(caloriesToday: caloriesToday, calorieGoal: viewModel.calorieGoal)
+            snapshot.nutrition = NutritionSnapshot(caloriesToday: caloriesToday, calorieGoal: viewModel.calorieGoal, updatedAt: Date())
             snapshot.weekScore = WeekScoreSnapshot(score: viewModel.overallScore, verdict: verdictText)
             snapshot.water = (goal?.isWaterTrackingEnabled ?? true)
-                ? WaterSnapshot(ouncesToday: ouncesToday, goalOunces: goal?.waterGoalOunces ?? 64)
+                ? WaterSnapshot(ouncesToday: ouncesToday, goalOunces: goal?.waterGoalOunces ?? 64, updatedAt: Date())
                 : nil
         }
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshotStore.homeWidgetKind)
@@ -228,6 +233,7 @@ private struct RefreshOnChange: ViewModifier {
     let nutritionWaterGoal: Double?
     let nutritionWaterTrackingEnabled: Bool?
     let healthAuthorized: Bool
+    let healthDataVersion: Int
     let refresh: () -> Void
 
     func body(content: Content) -> some View {
@@ -245,6 +251,7 @@ private struct RefreshOnChange: ViewModifier {
             .onChange(of: nutritionWaterGoal) { _, _ in refresh() }
             .onChange(of: nutritionWaterTrackingEnabled) { _, _ in refresh() }
             .onChange(of: healthAuthorized) { _, _ in refresh() }
+            .onChange(of: healthDataVersion) { _, _ in refresh() }
     }
 }
 
@@ -254,6 +261,7 @@ private struct WeekTriadCard: View {
     @ObservedObject var viewModel: OverviewViewModel
     let trackedModules: Set<TrackedModule>
     @Binding var selectedTab: AppTab
+    let showBreakdown: () -> Void
 
     private var trackedScores: [Double] {
         var scores: [Double] = []
@@ -264,7 +272,7 @@ private struct WeekTriadCard: View {
     }
 
     private var onTrackCount: Int {
-        trackedScores.filter { $0 >= 60 }.count
+        trackedScores.filter { WeekGrade(score: $0).isOnTrack }.count
     }
 
     var body: some View {
@@ -283,31 +291,40 @@ private struct WeekTriadCard: View {
 
             HStack(spacing: 8) {
                 if trackedModules.contains(.finance) {
-                    TriadColumn(pillar: .money, symbol: "wallet.bifold", progress: viewModel.expenseScore / 100, label: "Finances", status: statusText(viewModel.expenseScore)) {
+                    TriadColumn(pillar: .money, symbol: "wallet.bifold", progress: viewModel.expenseScore / 100, label: "Finances", status: statusText(viewModel.expenseScore), grade: WeekGrade(score: viewModel.expenseScore).foodGrade) {
                         selectedTab = .finances
                     }
                 }
                 if trackedModules.contains(.workouts) {
-                    TriadColumn(pillar: .training, symbol: "figure.strengthtraining.traditional", progress: viewModel.workoutScore / 100, label: "Workouts", status: statusText(viewModel.workoutScore)) {
+                    TriadColumn(pillar: .training, symbol: "figure.strengthtraining.traditional", progress: viewModel.workoutScore / 100, label: "Workouts", status: statusText(viewModel.workoutScore), grade: WeekGrade(score: viewModel.workoutScore).foodGrade) {
                         selectedTab = .workouts
                     }
                 }
                 if trackedModules.contains(.nutrition) {
-                    TriadColumn(pillar: .food, symbol: "fork.knife", progress: viewModel.calorieScore / 100, label: "Nutrition", status: statusText(viewModel.calorieScore)) {
+                    TriadColumn(pillar: .food, symbol: "fork.knife", progress: viewModel.calorieScore / 100, label: "Nutrition", status: statusText(viewModel.calorieScore), grade: WeekGrade(score: viewModel.calorieScore).foodGrade) {
                         selectedTab = .nutrition
                     }
                 }
             }
+
+            Button(action: showBreakdown) {
+                HStack(spacing: 4) {
+                    Text("See what's behind your score")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.inkSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .tapTarget(layoutWidth: nil, layoutHeight: 32)
+            }
+            .buttonStyle(.plain)
         }
         .cardStyle()
     }
 
     private func statusText(_ score: Double) -> String {
-        switch score {
-        case 80...: return "Ahead"
-        case 50..<80: return "On pace"
-        default: return "Behind"
-        }
+        WeekGrade(score: score).status
     }
 }
 
@@ -317,6 +334,7 @@ private struct TriadColumn: View {
     let progress: Double
     let label: String
     let status: String
+    let grade: FoodGrade
     let action: () -> Void
 
     var body: some View {
@@ -330,9 +348,12 @@ private struct TriadColumn: View {
                 Text(label)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.ink)
-                Text(status)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.inkTertiary)
+                HStack(spacing: 5) {
+                    GradeBadge(grade: grade, size: 18)
+                    Text(status)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.inkTertiary)
+                }
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())

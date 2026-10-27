@@ -9,6 +9,8 @@ struct RecipeDetailView: View {
     @State private var showEdit = false
     @State private var confirmDelete = false
     @State private var addedCount: Int?
+    @State private var showLogMeal = false
+    @State private var loggedMeal: MealType?
 
     var body: some View {
         ScrollView {
@@ -41,6 +43,18 @@ struct RecipeDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.food)
                 .disabled(recipe.ingredients.isEmpty)
+
+                Button {
+                    showLogMeal = true
+                } label: {
+                    Label(loggedMeal.map { "Added to \($0.displayName.lowercased())" } ?? "I made it",
+                          systemImage: loggedMeal == nil ? "fork.knife" : "checkmark")
+                        .font(.rowTitle)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.bordered)
+                .tint(.food)
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("INGREDIENTS").sectionLabelStyle()
@@ -80,6 +94,9 @@ struct RecipeDetailView: View {
             }
         }
         .sheet(isPresented: $showEdit) { EditRecipeView(recipe: recipe) }
+        .sheet(isPresented: $showLogMeal) {
+            LogRecipeMealView(recipe: recipe) { meal in withAnimation { loggedMeal = meal } }
+        }
         .confirmationDialog("Delete this recipe?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 // Leave the screen first so it never renders a deleted model.

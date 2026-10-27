@@ -98,6 +98,7 @@ struct WorkoutView: View {
                 if newPhase == .active { refreshHealthData() }
             }
             .onChange(of: sessions) { refreshWidgetSnapshot() }
+            .onChange(of: health.dataVersion) { refreshHealthData() }
             .onChange(of: health.recentWorkouts) { refreshWidgetSnapshot() }
             .onChange(of: health.isAuthorized) { _, isAuthorized in
                 if isAuthorized {
@@ -171,6 +172,7 @@ struct WorkoutView: View {
                                 .foregroundStyle(Color.inkSecondary)
                         )
                         .frame(width: 36, height: 36)
+                        .tapTarget(layoutWidth: 36, layoutHeight: 36)
                 }
                 Button {
                     showSettings = true
@@ -184,6 +186,7 @@ struct WorkoutView: View {
                                 .foregroundStyle(Color.inkSecondary)
                         )
                         .frame(width: 36, height: 36)
+                        .tapTarget(layoutWidth: 36, layoutHeight: 36)
                 }
             }
         }
@@ -741,6 +744,7 @@ private struct TemplateCard: View {
                             .frame(width: 30, height: 30)
                             .background(Color.fill)
                             .clipShape(Circle())
+                            .tapTarget(layoutWidth: 30, layoutHeight: 30)
                     }
                     .buttonStyle(.plain)
 

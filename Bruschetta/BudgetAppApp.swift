@@ -30,6 +30,7 @@ struct BudgetAppApp: App {
     init() {
         AnalyticsService.configure()
         _ = SubscriptionManager.shared
+        SelectAllOnEdit.install()
     }
 
     var sharedModelContainer: ModelContainer = AppModelContainer.shared

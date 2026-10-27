@@ -109,6 +109,11 @@ final class HealthKitManager: ObservableObject {
     @Published private(set) var recentWorkouts: [CardioWorkout] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
+    /// Bumped whenever Health may have new data (observer fired, app foregrounded, or
+    /// authorization resolved). Views key their fetches on this so they never go stale.
+    @Published private(set) var dataVersion = 0
+
+    private var observerQuery: HKObserverQuery?
 
     var isHealthDataAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
@@ -126,10 +131,35 @@ final class HealthKitManager: ObservableObject {
             )
             isAuthorized = true
             errorMessage = nil
+            startObservingWorkouts()
             await fetchRecentWorkouts()
+            dataVersion += 1
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Call when the app returns to the foreground; workouts may have synced while away.
+    func notifyForegrounded() {
+        guard isAuthorized else { return }
+        dataVersion += 1
+    }
+
+    /// Watches for new/changed workouts and asks Health to wake the app when they arrive.
+    private func startObservingWorkouts() {
+        guard observerQuery == nil else { return }
+        let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completion, error in
+            Task { @MainActor in
+                if error == nil {
+                    await self?.fetchRecentWorkouts()
+                    self?.dataVersion += 1
+                }
+                completion()
+            }
+        }
+        store.execute(query)
+        observerQuery = query
+        store.enableBackgroundDelivery(for: workoutType, frequency: .immediate) { _, _ in }
     }
 
     func fetchRecentWorkouts(limit: Int = 20) async {
@@ -149,7 +179,16 @@ final class HealthKitManager: ObservableObject {
     func fetchWorkouts(in interval: DateInterval) async -> [CardioWorkout] {
         guard isHealthDataAvailable, isAuthorized else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: interval.start, end: interval.end, options: .strictStartDate)
-        return (try? await runSampleQuery(predicate: predicate, limit: HKObjectQueryNoLimit)) ?? []
+        // Retry once: queries fail transiently (e.g. protected data unavailable right after unlock).
+        for attempt in 0..<2 {
+            do {
+                return try await runSampleQuery(predicate: predicate, limit: HKObjectQueryNoLimit)
+            } catch {
+                errorMessage = error.localizedDescription
+                if attempt == 0 { try? await Task.sleep(nanoseconds: 1_000_000_000) }
+            }
+        }
+        return []
     }
 
     /// Total step count over the given interval (e.g. today, or the current week).
