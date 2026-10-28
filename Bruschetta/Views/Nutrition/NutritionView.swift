@@ -92,7 +92,13 @@ struct NutritionView: View {
 
                     ForEach(MealType.allCases) { meal in
                         let entries = todaysEntries.filter { $0.mealType == meal }
-                        MealSection(meal: meal, entries: entries, caloriesRemaining: caloriesRemaining) {
+                        MealSection(
+                            meal: meal,
+                            entries: entries,
+                            caloriesRemaining: caloriesRemaining,
+                            previousDayCount: previousDayEntries(for: meal).count,
+                            onCopyPreviousDay: { copyPreviousDay(meal: meal) }
+                        ) {
                             addFoodDefaultMeal = meal
                             showAddFood = true
                         } onDelete: { entry in
@@ -235,6 +241,22 @@ struct NutritionView: View {
         if Calendar.current.isDateInToday(selectedDate) { return "Today" }
         if Calendar.current.isDateInYesterday(selectedDate) { return "Yesterday" }
         return selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    private func previousDayEntries(for meal: MealType) -> [NutritionEntry] {
+        let calendar = Calendar.current
+        guard let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDate) else { return [] }
+        return allEntries
+            .filter { $0.mealType == meal && calendar.isDate($0.date, inSameDayAs: previousDay) }
+            .sorted { $0.date < $1.date }
+    }
+
+    private func copyPreviousDay(meal: MealType) {
+        let timestamp = timestampOnSelectedDate()
+        for entry in previousDayEntries(for: meal) {
+            modelContext.insert(NutritionEntry(date: timestamp, mealType: meal, quantity: entry.quantity, foodItem: entry.foodItem))
+        }
+        try? modelContext.save()
     }
 
     private func changeDay(by days: Int) {
@@ -513,6 +535,8 @@ private struct MealSection: View {
     let meal: MealType
     let entries: [NutritionEntry]
     let caloriesRemaining: Double
+    let previousDayCount: Int
+    let onCopyPreviousDay: () -> Void
     let onAdd: () -> Void
     let onDelete: (NutritionEntry) -> Void
     let onEdit: (NutritionEntry) -> Void
@@ -521,29 +545,46 @@ private struct MealSection: View {
 
     var body: some View {
         if entries.isEmpty {
-            Button(action: onAdd) {
-                HStack {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle")
-                        Text("Add \(meal.displayName.lowercased())")
-                    }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.inkTertiary)
-
-                    Spacer()
-
-                    Text("\(Int(caloriesRemaining).formatted()) cal to spend")
-                        .font(.system(size: 12))
+            VStack(spacing: 10) {
+                Button(action: onAdd) {
+                    HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle")
+                            Text("Add \(meal.displayName.lowercased())")
+                        }
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.inkTertiary)
+
+                        Spacer()
+
+                        Text("\(Int(caloriesRemaining).formatted()) cal to spend")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.inkTertiary)
+                    }
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .background(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(Color.ink.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
-                )
+                .buttonStyle(.plain)
+
+                if previousDayCount > 0 {
+                    Button(action: onCopyPreviousDay) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "doc.on.doc")
+                            Text("Copy \(meal.displayName.lowercased()) from previous day (\(previousDayCount))")
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.food)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.foodTint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(Color.ink.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+            )
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
