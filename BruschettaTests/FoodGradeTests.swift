@@ -35,6 +35,24 @@ struct FoodGradeTests {
     }
 
     @Test
+    func skinOnChickenThighGetsLeanProteinBonus() {
+        // Base score 3 (C) without the bonus.
+        #expect(estimate(calories: 211, fat: 15, sodium: 80, protein: 17) == .b)
+    }
+
+    @Test
+    func leanProteinBonusDoesNotLiftDOrEFoods() {
+        // Bacon-like: base D, high protein, no sugar.
+        #expect(estimate(calories: 540, fat: 42, sodium: 1700, protein: 37) == .e)
+        #expect(estimate(calories: 300, fat: 25, sodium: 1100, protein: 20) == .d)
+    }
+
+    @Test
+    func leanProteinBonusRequiresLowSugar() {
+        #expect(estimate(calories: 400, sugar: 25, fat: 15, sodium: 150, fiber: 5, protein: 15) == .c)
+    }
+
+    @Test
     func wholeFruitEstimatesB() {
         #expect(estimate(calories: 52, sugar: 10, fat: 0.2, sodium: 1, fiber: 2.4, protein: 0.3) == .b)
     }

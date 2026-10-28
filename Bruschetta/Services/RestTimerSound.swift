@@ -32,6 +32,7 @@ final class RestTimerSoundPlayer {
     static let shared = RestTimerSoundPlayer()
 
     private var player: AVAudioPlayer?
+    private var keepAlivePlayer: AVAudioPlayer?
     private let synthesizer = AVSpeechSynthesizer()
     private static let sampleRate = 44100.0
 
@@ -39,13 +40,46 @@ final class RestTimerSoundPlayer {
         play(RestTimerSound.selected)
     }
 
+    /// Starts a silent audio loop for the length of a rest. With the `audio` background mode this keeps
+    /// the app running while the phone is locked or the app is backgrounded, so the rest timer can
+    /// still fire and play its sound.
+    func beginKeepAlive() {
+        guard keepAlivePlayer?.isPlaying != true else { return }
+        activateSession()
+        keepAlivePlayer = try? AVAudioPlayer(data: Self.wavData(from: [Float](repeating: 0, count: Int(Self.sampleRate))))
+        keepAlivePlayer?.numberOfLoops = -1
+        keepAlivePlayer?.prepareToPlay()
+        keepAlivePlayer?.play()
+    }
+
+    /// Stops the silent loop and releases the audio session unless the end-of-rest sound is still playing.
+    func endKeepAlive() {
+        keepAlivePlayer?.stop()
+        keepAlivePlayer = nil
+        deactivateSessionWhenIdle()
+    }
+
+    private func activateSession() {
+        // Playback is required to keep running in the background; mixing leaves the user's music playing.
+        try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
+
+    private func deactivateSessionWhenIdle() {
+        guard keepAlivePlayer == nil, player?.isPlaying != true, !synthesizer.isSpeaking else { return }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
     func play(_ sound: RestTimerSound) {
         player?.stop()
         synthesizer.stopSpeaking(at: .immediate)
+        activateSession()
 
-        // Ambient respects the silent switch and mixes with the user's music.
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // Release the session once the sound has finished, unless another rest has started.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            self?.deactivateSessionWhenIdle()
+        }
 
         switch sound {
         case .none:

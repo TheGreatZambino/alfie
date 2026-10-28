@@ -8,6 +8,11 @@ struct ScoreComponent: Identifiable, Equatable {
     /// Plain-language numbers behind the progress, e.g. "2 of 3 this week".
     let detail: String
     var isTracked: Bool = true
+    /// 0...1 fill for the progress bar when it should match the raw numbers in `detail`
+    /// rather than the (possibly paced) credit in `progress`. Defaults to `progress`.
+    var barProgress: Double? = nil
+
+    var displayProgress: Double { barProgress ?? progress }
 
     var id: String { name }
 }

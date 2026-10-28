@@ -56,7 +56,7 @@ enum FoodGrade: Int, CaseIterable, Comparable {
 
     /// Simplified Nutri-Score for foods lacking an official grade. Takes per-100g values.
     /// Saturated fat and fruit/veg content aren't tracked, so total fat (at 40%) stands in
-    /// for saturated fat and the fruit/veg bonus is skipped.
+    /// for saturated fat and the fruit/veg bonus is skipped. A lean-protein bonus offsets that.
     static func estimate(caloriesPer100g: Double, sugarPer100g: Double, fatPer100g: Double,
                          sodiumMgPer100g: Double, fiberPer100g: Double, proteinPer100g: Double) -> FoodGrade {
         func points(_ value: Double, step: Double, cap: Int) -> Int {
@@ -68,13 +68,21 @@ enum FoodGrade: Int, CaseIterable, Comparable {
             + points(sodiumMgPer100g, step: 90, cap: 10)
         let positive = points(fiberPer100g, step: 0.9, cap: 5) + points(proteinPer100g, step: 1.6, cap: 5)
         let score = negative - positive
+        let base: FoodGrade
         switch score {
-        case ...(-1): return .a
-        case 0...2: return .b
-        case 3...10: return .c
-        case 11...18: return .d
-        default: return .e
+        case ...(-1): base = .a
+        case 0...2: base = .b
+        case 3...10: base = .c
+        case 11...18: base = .d
+        default: base = .e
         }
+        // Lean-protein bonus: protein-dense, low-sugar whole foods (chicken thigh, salmon, eggs)
+        // move up a step, since total fat overstates saturated fat for them. Only foods already
+        // at C or better qualify, so bacon, sausage and other D/E foods aren't lifted.
+        if proteinPer100g >= 15, sugarPer100g < 5, base >= .c, let next = FoodGrade(rawValue: base.rawValue + 1) {
+            return next
+        }
+        return base
     }
 
     /// Calorie-weighted average so a splash of milk doesn't count as much as a full plate.

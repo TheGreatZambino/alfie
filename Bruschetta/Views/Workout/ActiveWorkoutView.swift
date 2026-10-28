@@ -59,61 +59,26 @@ struct WorkoutPlanSet {
     var restSeconds: Int = 0
 }
 
-private struct LoggedDraftSet: Identifiable {
-    let id = UUID()
-    var reps: Int
-    var weight: Double
-    var durationSeconds: Int = 0
-    var restSeconds: Int = 0
-    var isLogged: Bool = false
-}
-
-private struct LoggedDraftEntry: Identifiable {
-    let id = UUID()
-    var exercise: Exercise
-    var trackingType: TrackingType = .reps
-    var sets: [LoggedDraftSet]
-
-    var isComplete: Bool { sets.allSatisfy(\.isLogged) }
-}
 
 struct ActiveWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var session = ActiveWorkoutSession.shared
 
-    let plan: WorkoutPlan
-
-    @State private var startTime = Date()
-    @State private var now = Date()
-    @State private var draftEntries: [LoggedDraftEntry]
     @State private var showDiscardConfirm = false
     @State private var showExercisePicker = false
     @State private var showUpdateTemplateConfirm = false
     @State private var entryPendingRemoval: UUID?
     @State private var isReordering = false
     @State private var bulkRestTarget: RestBulkTarget?
-    /// Set when the Live Activity skips ahead; otherwise focus is the first unfinished exercise.
-    @State private var focusedEntryID: UUID?
-    /// When set, a rest countdown is running and ends at this date.
-    @State private var restEndDate: Date?
-    /// Length of the current rest, for the banner's progress bar; grows when the user adds time.
-    @State private var restTotal: TimeInterval = 0
 
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private var plan: WorkoutPlan? { session.plan }
+    private var draftEntries: [LoggedDraftEntry] { session.draftEntries }
+    private var totalSets: Int { session.totalSets }
+    private var completedSets: Int { session.completedSets }
+    private var currentExerciseIndex: Int? { session.currentExerciseIndex }
 
-    init(plan: WorkoutPlan) {
-        self.plan = plan
-        _draftEntries = State(initialValue: plan.entries.map { entry in
-            LoggedDraftEntry(exercise: entry.exercise, trackingType: entry.trackingType, sets: entry.sets.map { LoggedDraftSet(reps: $0.reps, weight: $0.weight, durationSeconds: $0.durationSeconds, restSeconds: $0.restSeconds) })
-        })
-    }
-
-    private var elapsed: TimeInterval {
-        now.timeIntervalSince(startTime)
-    }
-
-    private var elapsedText: String {
-        let total = Int(elapsed)
+    private func elapsedText(at date: Date) -> String {
+        let total = max(0, Int(date.timeIntervalSince(session.startTime)))
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let seconds = total % 60
@@ -123,69 +88,16 @@ struct ActiveWorkoutView: View {
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
-    private var totalSets: Int { draftEntries.reduce(0) { $0 + $1.sets.count } }
-    private var completedSets: Int { draftEntries.reduce(0) { $0 + $1.sets.filter(\.isLogged).count } }
-
-    private var liveActivityState: WorkoutActivityAttributes.ContentState {
-        guard let index = currentExerciseIndex,
-              let setIndex = draftEntries[index].sets.firstIndex(where: { !$0.isLogged }) else {
-            return .init(currentExercise: nil, setNumber: 0, setsInExercise: 0, weight: 0, effort: "", completedSets: completedSets, totalSets: totalSets)
-        }
-        let entry = draftEntries[index]
-        let set = entry.sets[setIndex]
-        return .init(
-            currentExercise: entry.exercise.name,
-            setNumber: setIndex + 1,
-            setsInExercise: entry.sets.count,
-            weight: set.weight,
-            effort: entry.trackingType == .time ? durationLabel(set.durationSeconds) : "\(set.reps) reps",
-            completedSets: completedSets,
-            totalSets: totalSets
-        )
-    }
-
-    /// Applies a button tap from the Live Activity to the current set.
-    private func handleLiveAction(_ note: Notification) {
-        guard let raw = note.userInfo?["kind"] as? String,
-              let kind = WorkoutLiveAction.Kind(rawValue: raw),
-              let index = currentExerciseIndex else { return }
-        switch kind {
-        case .adjustWeight:
-            guard let setIndex = draftEntries[index].sets.firstIndex(where: { !$0.isLogged }) else { return }
-            let delta = note.userInfo?["delta"] as? Double ?? 0
-            draftEntries[index].sets[setIndex].weight = max(0, draftEntries[index].sets[setIndex].weight + delta)
-        case .logSet:
-            guard let setIndex = draftEntries[index].sets.firstIndex(where: { !$0.isLogged }) else { return }
-            draftEntries[index].sets[setIndex].isLogged = true
-            startRest(draftEntries[index].sets[setIndex].restSeconds)
-        case .nextExercise:
-            let incomplete = draftEntries.indices.filter { !draftEntries[$0].isComplete }
-            guard let next = incomplete.first(where: { $0 > index }) ?? incomplete.first(where: { $0 != index }) else { return }
-            focusedEntryID = draftEntries[next].id
-        }
-    }
-
-    /// Index of the exercise currently in focus — the first one with an unlogged set, unless the
-    /// Live Activity skipped ahead.
-    private var currentExerciseIndex: Int? {
-        if let focusedEntryID, let index = draftEntries.firstIndex(where: { $0.id == focusedEntryID && !$0.isComplete }) {
-            return index
-        }
-        return draftEntries.firstIndex { !$0.isComplete }
-    }
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
 
-                if let restEndDate {
-                    RestCountdownBanner(endDate: restEndDate, total: restTotal) { delta in
-                        let newEnd = restEndDate.addingTimeInterval(TimeInterval(delta))
-                        restTotal = max(1, restTotal + TimeInterval(delta))
-                        withAnimation(.snappy) { self.restEndDate = newEnd > Date() ? newEnd : nil }
+                if let restEndDate = session.restEndDate {
+                    RestCountdownBanner(endDate: restEndDate, total: session.restTotal) { delta in
+                        session.adjustRest(by: delta)
                     } onSkip: {
-                        withAnimation(.snappy) { self.restEndDate = nil }
+                        session.skipRest()
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
@@ -194,7 +106,7 @@ struct ActiveWorkoutView: View {
                     ReorderExerciseList(items: draftEntries.map {
                         ReorderRowItem(id: $0.id, title: $0.exercise.name, subtitle: "\($0.sets.count) \($0.sets.count == 1 ? "set" : "sets")")
                     }) { source, destination in
-                        withAnimation(.snappy) { draftEntries.move(fromOffsets: source, toOffset: destination) }
+                        withAnimation(.snappy) { session.draftEntries.move(fromOffsets: source, toOffset: destination) }
                     }
                 } else {
                 ScrollView {
@@ -205,7 +117,7 @@ struct ActiveWorkoutView: View {
                             ForEach(draftEntries.map(\.id), id: \.self) { entryID in
                               if let index = draftEntries.firstIndex(where: { $0.id == entryID }) {
                                 ExerciseCard(
-                                    entry: $draftEntries[index],
+                                    entry: $session.draftEntries[index],
                                     isFocused: index == currentExerciseIndex,
                                     lastTime: lastLoggedSet(for: draftEntries[index].exercise),
                                     onSetLogged: startRest,
@@ -236,12 +148,12 @@ struct ActiveWorkoutView: View {
             .toolbar(.hidden, for: .navigationBar)
             .tint(.training)
             .confirmationDialog("Are you sure you want to discard this workout?", isPresented: $showDiscardConfirm, titleVisibility: .visible) {
-                Button("Discard Workout", role: .destructive) { dismiss() }
+                Button("Discard Workout", role: .destructive) { session.discard() }
                 Button("Keep Going", role: .cancel) {}
             }
-            .confirmationDialog("Update \"\(plan.templateName ?? "template")\"?", isPresented: $showUpdateTemplateConfirm, titleVisibility: .visible) {
-                Button("Overwrite Template") { finish(updateTemplate: true) }
-                Button("Keep Original Template") { finish() }
+            .confirmationDialog("Update \"\(plan?.templateName ?? "template")\"?", isPresented: $showUpdateTemplateConfirm, titleVisibility: .visible) {
+                Button("Overwrite Template") { session.finish(context: modelContext, updateTemplate: true) }
+                Button("Keep Original Template") { session.finish(context: modelContext) }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("You changed this workout. Save the changes to the template for next time?")
@@ -261,35 +173,20 @@ struct ActiveWorkoutView: View {
             }
             .sheet(item: $bulkRestTarget) { target in
                 BulkRestSheet(target: target) { seconds in
-                    for index in draftEntries.indices where target.entryID == nil || draftEntries[index].id == target.entryID {
-                        for setIndex in draftEntries[index].sets.indices {
-                            draftEntries[index].sets[setIndex].restSeconds = seconds
+                    for index in session.draftEntries.indices where target.entryID == nil || session.draftEntries[index].id == target.entryID {
+                        for setIndex in session.draftEntries[index].sets.indices {
+                            session.draftEntries[index].sets[setIndex].restSeconds = seconds
                         }
                     }
                 }
             }
             .sheet(isPresented: $showExercisePicker) {
                 ExercisePickerView(alreadySelected: Set(draftEntries.map(\.exercise.id))) { exercise in
-                    draftEntries.append(LoggedDraftEntry(exercise: exercise, sets: [LoggedDraftSet(reps: 10, weight: 0)]))
+                    session.draftEntries.append(LoggedDraftEntry(exercise: exercise, sets: [LoggedDraftSet(reps: 10, weight: 0)]))
                 }
             }
-            .onReceive(timer) { value in
-                now = value
-                if let restEndDate, value >= restEndDate {
-                    self.restEndDate = nil
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    RestTimerSoundPlayer.shared.playSelected()
-                }
-            }
-            .onAppear {
-                WorkoutLiveActivityManager.shared.start(name: plan.name, startDate: startTime, state: liveActivityState)
-            }
-            .onChange(of: liveActivityState) { _, state in
-                WorkoutLiveActivityManager.shared.update(state)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: WorkoutLiveAction.notification), perform: handleLiveAction)
-            .onDisappear {
-                WorkoutLiveActivityManager.shared.end()
+            .onChange(of: session.liveActivityState) { _, _ in
+                session.syncLiveActivity()
             }
             .interactiveDismissDisabled()
         }
@@ -298,11 +195,23 @@ struct ActiveWorkoutView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(plan.name)
+                Text(plan?.name ?? "Workout")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
 
                 Spacer()
+
+                Button {
+                    session.minimize()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(.white.opacity(0.18)))
+                        .tapTarget(layoutWidth: 36, layoutHeight: 28)
+                }
+                .accessibilityLabel("Minimize workout")
 
                 Button {
                     withAnimation(.snappy) { isReordering.toggle() }
@@ -344,10 +253,10 @@ struct ActiveWorkoutView: View {
                 }
 
                 Button("Finish") {
-                    if planDiffersFromTemplate {
+                    if session.planDiffersFromTemplate {
                         showUpdateTemplateConfirm = true
                     } else {
-                        finish()
+                        session.finish(context: modelContext)
                     }
                 }
                     .font(.system(size: 14, weight: .semibold))
@@ -360,10 +269,12 @@ struct ActiveWorkoutView: View {
             }
 
             HStack(alignment: .lastTextBaseline, spacing: 10) {
-                Text(elapsedText)
-                    .font(.heroNumeralScreen)
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(elapsedText(at: context.date))
+                        .font(.heroNumeralScreen)
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                }
                 Text("\(completedSets) of \(totalSets) sets")
                     .font(.system(size: 14))
                     .foregroundStyle(.white.opacity(0.8))
@@ -383,16 +294,12 @@ struct ActiveWorkoutView: View {
 
     private func removeEntry(_ id: UUID) {
         withAnimation(.snappy) {
-            draftEntries.removeAll { $0.id == id }
+            session.draftEntries.removeAll { $0.id == id }
         }
     }
 
     private func startRest(_ seconds: Int) {
-        restTotal = TimeInterval(seconds)
-        withAnimation(.snappy) {
-            restEndDate = seconds > 0 ? Date().addingTimeInterval(TimeInterval(seconds)) : nil
-        }
-        now = Date()
+        session.startRest(seconds)
     }
 
     /// Most recent logged set for this exercise from prior sessions, for the "Last time" reference.
@@ -402,83 +309,8 @@ struct ActiveWorkoutView: View {
             .sorted { ($0.session?.date ?? .distantPast) > ($1.session?.date ?? .distantPast) }
             .first
     }
-
-    /// True when this workout started from a template and its exercises, sets or targets
-    /// have since been edited.
-    private var planDiffersFromTemplate: Bool {
-        guard plan.templateID != nil else { return false }
-        func signature(_ sets: [(Int, Double, Int, Int)]) -> [[Int]] {
-            sets.map { [$0.0, Int($0.1 * 100), $0.2, $0.3] }
-        }
-        let original = plan.entries.map { entry in
-            [entry.exercise.id.hashValue, entry.trackingType.hashValue, signature(entry.sets.map { ($0.reps, $0.weight, $0.durationSeconds, $0.restSeconds) }).hashValue]
-        }
-        let current = draftEntries.map { entry in
-            [entry.exercise.id.hashValue, entry.trackingType.hashValue, signature(entry.sets.map { ($0.reps, $0.weight, $0.durationSeconds, $0.restSeconds) }).hashValue]
-        }
-        return original != current
-    }
-
-    private func overwriteTemplate() {
-        guard let id = plan.templateID, let template = modelContext.model(for: id) as? WorkoutTemplate else { return }
-        for entry in template.entries ?? [] {
-            modelContext.delete(entry)
-        }
-        for (index, entry) in draftEntries.enumerated() {
-            let templateEntry = TemplateExerciseEntry(exercise: entry.exercise, order: index, trackingType: entry.trackingType)
-            templateEntry.template = template
-            modelContext.insert(templateEntry)
-            for (setIndex, set) in entry.sets.enumerated() {
-                let setEntry = TemplateSetEntry(setNumber: setIndex + 1, targetReps: set.reps, targetWeight: set.weight, targetDurationSeconds: set.durationSeconds, restSeconds: set.restSeconds)
-                setEntry.templateExercise = templateEntry
-                modelContext.insert(setEntry)
-            }
-        }
-    }
-
-    private func finish(updateTemplate: Bool = false) {
-        if updateTemplate { overwriteTemplate() }
-        let session = WorkoutSession(date: startTime, name: plan.name, templateName: plan.templateName, durationSeconds: elapsed)
-        modelContext.insert(session)
-
-        for entry in draftEntries {
-            let priorBest = personalBest(for: entry.exercise, trackingType: entry.trackingType)
-            var sessionBest = priorBest
-
-            var loggedSets: [LoggedSet] = []
-            for (index, draftSet) in entry.sets.enumerated() {
-                let loggedSet = LoggedSet(exercise: entry.exercise, setNumber: index + 1, weight: draftSet.weight, reps: draftSet.reps, durationSeconds: draftSet.durationSeconds, trackingType: entry.trackingType)
-                loggedSet.session = session
-                modelContext.insert(loggedSet)
-                loggedSets.append(loggedSet)
-                sessionBest = max(sessionBest, prValue(for: loggedSet))
-            }
-
-            guard sessionBest > priorBest else { continue }
-            for loggedSet in loggedSets where !loggedSet.isWarmup && prValue(for: loggedSet) == sessionBest {
-                loggedSet.isPR = true
-            }
-        }
-
-        try? modelContext.save()
-        AnalyticsService.workoutLogged(.strength)
-        dismiss()
-    }
-
-    /// The value used to compare a set against the exercise's personal best: weight for
-    /// rep-tracked sets, duration for time-tracked sets.
-    private func prValue(for loggedSet: LoggedSet) -> Double {
-        loggedSet.trackingType == .time ? Double(loggedSet.durationSeconds) : loggedSet.weight
-    }
-
-    /// The best value ever logged for this exercise (excluding warmups), before this session.
-    private func personalBest(for exercise: Exercise, trackingType: TrackingType) -> Double {
-        (exercise.loggedSets ?? [])
-            .filter { $0.session != nil && !$0.isWarmup && $0.trackingType == trackingType }
-            .map { $0.trackingType == .time ? Double($0.durationSeconds) : $0.weight }
-            .max() ?? 0
-    }
 }
+
 
 // MARK: - Exercise card (every movement fully expanded, completable in any order)
 
@@ -594,12 +426,6 @@ private struct ExerciseCard: View {
     }
 }
 
-private func durationLabel(_ totalSeconds: Int) -> String {
-    let minutes = totalSeconds / 60
-    let seconds = totalSeconds % 60
-    if minutes > 0 { return String(format: "%d:%02d", minutes, seconds) }
-    return "\(seconds)s"
-}
 
 /// One editable set row: tap the leading circle to mark it logged, tap into
 /// the weight/reps fields to type a value directly (auto-selected on focus).

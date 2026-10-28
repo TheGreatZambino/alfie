@@ -6,6 +6,7 @@ struct RestSoundNote: View {
         Label("Change the rest timer sound in Settings › Workout Goals.", systemImage: "speaker.wave.2")
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -131,6 +132,9 @@ struct BulkRestSheet: View {
                 Text("Set the same rest after every set. You can still adjust individual sets afterward.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 RestTimerRow(seconds: $seconds)
 

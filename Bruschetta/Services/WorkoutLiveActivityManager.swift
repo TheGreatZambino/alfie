@@ -9,6 +9,10 @@ final class WorkoutLiveActivityManager {
 
     func start(name: String, startDate: Date, state: WorkoutActivityAttributes.ContentState) {
         guard activity == nil, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        // Clear anything left over from a previous run (e.g. the app was killed mid-workout).
+        for stale in Activity<WorkoutActivityAttributes>.activities {
+            Task { await stale.end(nil, dismissalPolicy: .immediate) }
+        }
         let attributes = WorkoutActivityAttributes(workoutName: name, startDate: startDate)
         activity = try? Activity.request(attributes: attributes, content: .init(state: state, staleDate: nil))
     }

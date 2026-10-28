@@ -29,6 +29,7 @@ struct SettingsView: View {
     @Query private var incomes: [Income]
     @Query private var bills: [Bill]
     @Query private var savingsAccounts: [SavingsAccount]
+    @Query private var retirementAccounts: [RetirementAccount]
     @Query private var workoutGoals: [WorkoutGoals]
     @Query private var nutritionGoals: [NutritionGoals]
     @Query private var categories: [Category]
@@ -316,6 +317,7 @@ struct SettingsView: View {
             bills: bills,
             income: income,
             savingsAccounts: savingsAccounts,
+            retirementAccounts: retirementAccounts,
             workoutSessions: workoutSessions,
             nutritionEntries: nutritionEntries,
             waterEntries: waterEntries

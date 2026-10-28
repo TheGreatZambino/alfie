@@ -46,27 +46,32 @@ struct ContentView: View {
                     TabView(selection: $selectedTab) {
                         Tab("Overview", systemImage: selectedTab == .overview ? "house.fill" : "house", value: AppTab.overview) {
                             OverviewView(selectedTab: $selectedTab, trackedModules: trackedModules)
+                                .activeWorkoutBar()
                         }
 
                         if trackedModules.contains(.finance) {
                             Tab("Finances", systemImage: selectedTab == .finances ? "wallet.bifold.fill" : "wallet.bifold", value: AppTab.finances) {
                                 DashboardView()
+                                .activeWorkoutBar()
                             }
                         }
 
                         if trackedModules.contains(.workouts) {
                             Tab("Workouts", systemImage: "figure.strengthtraining.traditional", value: AppTab.workouts) {
                                 WorkoutView()
+                                .activeWorkoutBar()
                             }
                         }
 
                         if trackedModules.contains(.nutrition) {
                             Tab("Nutrition", systemImage: "fork.knife", value: AppTab.nutrition) {
                                 NutritionView()
+                                .activeWorkoutBar()
                             }
                         }
                     }
                     .tint(selectedTab.pillarColor)
+                    .activeWorkoutCover()
                     .onAppear { applyTabBarAppearance(for: selectedTab) }
                     .onChange(of: selectedTab) { _, newTab in applyTabBarAppearance(for: newTab) }
                     .onChange(of: trackedModulesRaw) { _, _ in
@@ -87,6 +92,7 @@ struct ContentView: View {
                         seedNutritionGoalsIfNeeded()
                         seedWorkoutGoalsIfNeeded()
                         seedSavingsAccountsIfNeeded()
+                        ActiveWorkoutSession.shared.restoreIfNeeded()
                         SavingsReconciler.reconcile(income: incomes.first, bills: bills, transactions: transactions, savingsAccounts: savingsAccounts, context: modelContext)
                         if !hasCompletedOnboarding {
                             showOnboarding = true
@@ -107,6 +113,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
+                ActiveWorkoutSession.shared.persistNow()
                 authManager.lock()
             } else if newPhase == .active {
                 HealthKitManager.shared.notifyForegrounded()
@@ -222,7 +229,7 @@ struct ContentView: View {
     ContentView()
         .environmentObject(AuthManager())
         .modelContainer(for: [
-            Income.self, Category.self, Bill.self, Transaction.self, SavingsAccount.self,
+            Income.self, Category.self, Bill.self, Transaction.self, SavingsAccount.self, RetirementAccount.self,
             Exercise.self, WorkoutTemplate.self, TemplateExerciseEntry.self, TemplateSetEntry.self,
             WorkoutSession.self, LoggedSet.self, WorkoutGoals.self,
             FoodItem.self, NutritionEntry.self, NutritionGoals.self

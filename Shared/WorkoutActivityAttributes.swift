@@ -13,6 +13,8 @@ nonisolated struct WorkoutActivityAttributes: ActivityAttributes {
         var effort: String
         var completedSets: Int
         var totalSets: Int
+        /// When set, a rest countdown is running and ends at this date.
+        var restEndDate: Date?
     }
 
     var workoutName: String

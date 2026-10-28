@@ -78,7 +78,7 @@ struct WorkoutGoalsSettingsView: View {
             } header: {
                 Text("Rest Timer")
             } footer: {
-                Text("Plays when a rest timer ends during a workout. Follows your silent switch and plays through headphones.")
+                Text("Plays when a rest timer ends during a workout. Also plays when your phone is locked or the app is in the background, and over the silent switch. Mixes with your music and plays through headphones.")
             }
         }
         .alfieListStyle()

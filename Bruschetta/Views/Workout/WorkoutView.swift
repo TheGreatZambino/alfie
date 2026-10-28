@@ -14,7 +14,6 @@ struct WorkoutView: View {
     @State private var editingTemplate: WorkoutTemplate?
     @State private var showStartWorkoutPicker = false
     @State private var showRepeatWorkoutPicker = false
-    @State private var activePlan: WorkoutPlan?
     @State private var todaySteps = 0
     @State private var showSettings = false
 
@@ -31,7 +30,7 @@ struct WorkoutView: View {
                     StatTilesRow(sessions: sessionsThisWeek, goal: workoutGoals.first?.weeklyStrengthGoal ?? 3, cardioMinutes: cardioMinutesThisWeek, steps: todaySteps)
 
                     TemplatesCard(templates: Array(sortedTemplates.prefix(3))) { template in
-                        activePlan = .template(template)
+                        ActiveWorkoutSession.shared.start(.template(template))
                     } onEdit: { template in
                         editingTemplate = template
                     } onDelete: { template in
@@ -62,7 +61,7 @@ struct WorkoutView: View {
             .sheet(isPresented: $showStartWorkoutPicker) {
                 StartWorkoutPickerView(templates: sortedTemplates, hasHistory: !sessions.isEmpty) { template in
                     showStartWorkoutPicker = false
-                    activePlan = .template(template)
+                    ActiveWorkoutSession.shared.start(.template(template))
                 } onEdit: { template in
                     showStartWorkoutPicker = false
                     editingTemplate = template
@@ -71,7 +70,7 @@ struct WorkoutView: View {
                     showNewTemplate = true
                 } onStartFresh: {
                     showStartWorkoutPicker = false
-                    activePlan = .fresh()
+                    ActiveWorkoutSession.shared.start(.fresh())
                 } onRepeatWorkout: {
                     showStartWorkoutPicker = false
                     showRepeatWorkoutPicker = true
@@ -80,11 +79,8 @@ struct WorkoutView: View {
             .sheet(isPresented: $showRepeatWorkoutPicker) {
                 RepeatWorkoutPickerView(sessions: sessions) { session in
                     showRepeatWorkoutPicker = false
-                    activePlan = .repeating(session)
+                    ActiveWorkoutSession.shared.start(.repeating(session))
                 }
-            }
-            .fullScreenCover(item: $activePlan) { plan in
-                ActiveWorkoutView(plan: plan)
             }
             .task {
                 await health.requestAuthorizationAndFetch()

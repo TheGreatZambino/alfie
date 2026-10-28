@@ -241,6 +241,12 @@ final class OverviewViewModel: ObservableObject {
         return min(1, actual / expected)
     }
 
+    /// Raw actual/goal fill for a progress bar, so the bar matches the "x of y" text even
+    /// when the score itself is paced to the days elapsed.
+    private static func rawProgress(actual: Double, goal: Double) -> Double {
+        goal > 0 ? min(1, max(0, actual / goal)) : 1
+    }
+
     private var weekFractionElapsed: Double { Double(daysElapsedThisWeek) / 7 }
 
     var workoutComponents: [ScoreComponent] {
@@ -248,26 +254,31 @@ final class OverviewViewModel: ObservableObject {
             ScoreComponent(name: "Strength sessions",
                            progress: Self.pacedProgress(actual: Double(strengthSessionsThisWeek), goal: Double(strengthGoal), fractionElapsed: weekFractionElapsed, wholeUnits: true),
                            detail: "\(strengthSessionsThisWeek) of \(strengthGoal) this week",
-                           isTracked: strengthGoal > 0),
+                           isTracked: strengthGoal > 0,
+                           barProgress: Self.rawProgress(actual: Double(strengthSessionsThisWeek), goal: Double(strengthGoal))),
             ScoreComponent(name: "Cardio sessions",
                            progress: Self.pacedProgress(actual: Double(cardioSessionsThisWeek), goal: Double(cardioGoal), fractionElapsed: weekFractionElapsed, wholeUnits: true),
                            detail: "\(cardioSessionsThisWeek) of \(cardioGoal) this week",
-                           isTracked: cardioGoal > 0),
+                           isTracked: cardioGoal > 0,
+                           barProgress: Self.rawProgress(actual: Double(cardioSessionsThisWeek), goal: Double(cardioGoal))),
             ScoreComponent(name: "Steps",
                            progress: Self.pacedProgress(actual: Double(stepsThisWeek), goal: Double(weeklyStepGoal), fractionElapsed: weekFractionElapsed),
                            detail: "\(stepsThisWeek.formatted()) of \(weeklyStepGoal.formatted()) this week",
-                           isTracked: weeklyStepGoal > 0)
+                           isTracked: weeklyStepGoal > 0,
+                           barProgress: Self.rawProgress(actual: Double(stepsThisWeek), goal: Double(weeklyStepGoal)))
         ].filter(\.isTracked)
         // Mile goals are opt-in: a goal of 0 is left out entirely.
         if weeklyMileGoal > 0 {
             rows.append(ScoreComponent(name: "Weekly miles",
                                        progress: Self.pacedProgress(actual: milesThisWeek, goal: weeklyMileGoal, fractionElapsed: weekFractionElapsed),
-                                       detail: String(format: "%.1f of %.1f mi", milesThisWeek, weeklyMileGoal)))
+                                       detail: String(format: "%.1f of %.1f mi", milesThisWeek, weeklyMileGoal),
+                                       barProgress: Self.rawProgress(actual: milesThisWeek, goal: weeklyMileGoal)))
         }
         if monthlyMileGoal > 0 {
             rows.append(ScoreComponent(name: "Monthly miles",
                                        progress: Self.pacedProgress(actual: milesThisMonth, goal: monthlyMileGoal, fractionElapsed: monthFractionElapsed),
-                                       detail: String(format: "%.1f of %.1f mi this month", milesThisMonth, monthlyMileGoal)))
+                                       detail: String(format: "%.1f of %.1f mi this month", milesThisMonth, monthlyMileGoal),
+                                       barProgress: Self.rawProgress(actual: milesThisMonth, goal: monthlyMileGoal)))
         }
         if averageDailyMileGoal > 0 {
             let average = milesThisWeek / Double(max(daysElapsedThisWeek, 1))
@@ -289,9 +300,14 @@ final class OverviewViewModel: ObservableObject {
                                    progress: essentialScore / 100,
                                    detail: "\(remainingThisPeriod.formatted(.currency(code: "USD").precision(.fractionLength(0)))) left this period")]
         if let savingsScore {
+            let currency = FloatingPointFormatStyle<Double>.Currency(code: "USD").precision(.fractionLength(0))
+            let goal = savingsAllocationThisPeriod.formatted(currency)
+            let covered = (savingsAllocationThisPeriod * savingsScore / 100).formatted(currency)
             rows.append(ScoreComponent(name: "Savings goal",
                                        progress: savingsScore / 100,
-                                       detail: "\(savingsAllocationThisPeriod.formatted(.currency(code: "USD").precision(.fractionLength(0)))) set aside this period"))
+                                       detail: savingsScore <= 0
+                                           ? "nothing left to cover your \(goal) goal this period"
+                                           : "\(covered) of \(goal) covered this period"))
         }
         return rows
     }

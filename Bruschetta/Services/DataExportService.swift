@@ -16,12 +16,13 @@ enum DataExportService {
         bills: [Bill],
         income: Income?,
         savingsAccounts: [SavingsAccount],
+        retirementAccounts: [RetirementAccount] = [],
         workoutSessions: [WorkoutSession],
         nutritionEntries: [NutritionEntry],
         waterEntries: [WaterEntry]
     ) -> [URL] {
         let files: [(name: String, contents: String)] = [
-            ("Finances.csv", financesCSV(transactions: transactions, bills: bills, income: income, savingsAccounts: savingsAccounts)),
+            ("Finances.csv", financesCSV(transactions: transactions, bills: bills, income: income, savingsAccounts: savingsAccounts, retirementAccounts: retirementAccounts)),
             ("Workouts.csv", workoutsCSV(sessions: workoutSessions)),
             ("Nutrition.csv", nutritionCSV(entries: nutritionEntries, waterEntries: waterEntries))
         ]
@@ -42,7 +43,7 @@ enum DataExportService {
 
     // MARK: - Finances
 
-    private static func financesCSV(transactions: [Transaction], bills: [Bill], income: Income?, savingsAccounts: [SavingsAccount]) -> String {
+    private static func financesCSV(transactions: [Transaction], bills: [Bill], income: Income?, savingsAccounts: [SavingsAccount], retirementAccounts: [RetirementAccount]) -> String {
         var csv = ""
 
         csv += "Transactions\n"
@@ -92,6 +93,13 @@ enum DataExportService {
                 amountString(account.allocationPerPaycheck),
                 account.lastReconciledPeriodEnd.map(dateFormatter.string) ?? ""
             ])
+        }
+
+        csv += "\n"
+        csv += "Retirement Accounts\n"
+        csv += csvRow(["Name", "Type", "Balance"])
+        for account in retirementAccounts.sorted(by: { $0.name < $1.name }) {
+            csv += csvRow([account.name, account.type.rawValue, amountString(account.balance)])
         }
 
         return csv

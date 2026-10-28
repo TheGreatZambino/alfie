@@ -104,7 +104,7 @@ struct ScoreBreakdownView: View {
                             .font(.system(size: 12))
                             .foregroundStyle(Color.inkTertiary)
                     }
-                    ProgressView(value: min(1, max(0, component.progress)))
+                    ProgressView(value: min(1, max(0, component.displayProgress)))
                         .tint(pillar.color)
                 }
                 .accessibilityElement(children: .combine)

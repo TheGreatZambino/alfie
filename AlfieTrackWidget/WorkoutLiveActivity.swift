@@ -33,8 +33,15 @@ struct WorkoutLiveActivity: Widget {
                     .font(.caption.bold())
                     .foregroundStyle(Self.accent)
             } compactTrailing: {
-                timer(context)
-                    .frame(maxWidth: 52)
+                if let end = context.state.restEndDate, end > Date() {
+                    Text(timerInterval: Date()...end, countsDown: true)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 52)
+                } else {
+                    timer(context)
+                        .frame(maxWidth: 52)
+                }
             } minimal: {
                 Image(systemName: "figure.strengthtraining.traditional")
                     .foregroundStyle(Self.accent)
@@ -68,7 +75,7 @@ struct WorkoutLiveActivity: Widget {
                         .lineLimit(1)
                     Spacer()
                     Text("Set \(state.setNumber) of \(state.setsInExercise) · \(state.effort)")
-                        .font(.caption)
+                        .font(.subheadline)
                         .opacity(0.85)
                 }
 
@@ -102,11 +109,23 @@ struct WorkoutLiveActivity: Widget {
                     .font(.headline)
             }
 
+            if let end = state.restEndDate, end > Date() {
+                HStack(spacing: 6) {
+                    Image(systemName: "timer")
+                    Text("Rest")
+                    Spacer()
+                    Text(timerInterval: Date()...end, countsDown: true)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                }
+                .font(.subheadline.bold())
+            }
+
             HStack(spacing: 8) {
                 ProgressView(value: progress(state))
                     .tint(tint)
                 Text("\(state.completedSets)/\(state.totalSets) sets")
-                    .font(.caption)
+                    .font(.subheadline)
                     .opacity(0.85)
             }
         }
