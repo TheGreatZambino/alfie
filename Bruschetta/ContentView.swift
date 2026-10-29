@@ -125,7 +125,10 @@ struct ContentView: View {
     private func requestHealthAccessIfNeeded() async {
         guard trackedModules.contains(.nutrition) || trackedModules.contains(.workouts) else { return }
         // Let the ATT prompt resolve first; iOS drops it if another system prompt is showing.
-        await GoogleMobileAdsInitializer.shared.waitUntilResolved()
+        // Only needed when the Health sheet may actually appear.
+        if !HealthKitManager.shared.hasRequestedAuthorization {
+            await GoogleMobileAdsInitializer.shared.waitUntilResolved()
+        }
         await HealthKitManager.shared.requestAuthorizationAndFetch()
     }
 

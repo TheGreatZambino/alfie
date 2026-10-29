@@ -105,7 +105,11 @@ final class HealthKitManager: ObservableObject {
     private let distanceCyclingType = HKQuantityType.quantityType(forIdentifier: .distanceCycling)!
     private let activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
 
-    @Published private(set) var isAuthorized = false
+    /// Persisted once the Health permission sheet has been shown, so later launches can
+    /// query immediately instead of waiting on the authorization round trip.
+    private static let authorizationRequestedKey = "healthKitAuthorizationRequested"
+
+    @Published private(set) var isAuthorized: Bool
     @Published private(set) var recentWorkouts: [CardioWorkout] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
@@ -114,6 +118,16 @@ final class HealthKitManager: ObservableObject {
     @Published private(set) var dataVersion = 0
 
     private var observerQuery: HKObserverQuery?
+
+    private init() {
+        isAuthorized = HKHealthStore.isHealthDataAvailable()
+            && UserDefaults.standard.bool(forKey: Self.authorizationRequestedKey)
+    }
+
+    /// True when the permission sheet has already been presented on this install.
+    var hasRequestedAuthorization: Bool {
+        UserDefaults.standard.bool(forKey: Self.authorizationRequestedKey)
+    }
 
     var isHealthDataAvailable: Bool {
         HKHealthStore.isHealthDataAvailable()
@@ -129,11 +143,14 @@ final class HealthKitManager: ObservableObject {
                 toShare: [],
                 read: [workoutType, stepCountType, distanceWalkingRunningType, distanceCyclingType, activeEnergyType]
             )
+            let wasAuthorized = isAuthorized
+            UserDefaults.standard.set(true, forKey: Self.authorizationRequestedKey)
             isAuthorized = true
             errorMessage = nil
             startObservingWorkouts()
             await fetchRecentWorkouts()
-            dataVersion += 1
+            // Views already fetched if we were authorized from launch; only nudge on the transition.
+            if !wasAuthorized { dataVersion += 1 }
         } catch {
             errorMessage = error.localizedDescription
         }

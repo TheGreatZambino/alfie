@@ -83,7 +83,7 @@ struct WorkoutView: View {
                 }
             }
             .task {
-                await health.requestAuthorizationAndFetch()
+                // Authorization is requested once at launch in ContentView.
                 if health.isAuthorized {
                     await refreshTodaySteps()
                 }
