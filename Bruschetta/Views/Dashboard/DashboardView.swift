@@ -14,6 +14,13 @@ struct DashboardView: View {
 
     private var income: Income? { incomes.first }
 
+    private var periodTransactions: [Transaction] {
+        guard let period = viewModel.currentPeriod else { return [] }
+        return transactions
+            .filter { $0.date >= period.start && $0.date <= period.end }
+            .sorted { $0.date > $1.date }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
@@ -36,6 +43,8 @@ struct DashboardView: View {
                         }
 
                         BillsThisPeriodCard(bills: viewModel.billsDueThisPeriod, period: viewModel.currentPeriod)
+
+                        RecentTransactionsCard(transactions: periodTransactions)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -339,5 +348,58 @@ private struct BillsThisPeriodCard: View {
 
     private func isPast(_ bill: Bill) -> Bool {
         dueDate(for: bill) < Calendar.current.startOfDay(for: Date())
+    }
+}
+
+// MARK: - Card 4: Recent transactions
+
+private struct RecentTransactionsCard: View {
+    let transactions: [Transaction]
+
+    private static let previewCount = 5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("RECENT TRANSACTIONS")
+                    .sectionLabelStyle()
+                Spacer()
+                NavigationLink {
+                    TransactionListView()
+                } label: {
+                    Text("See all")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.money)
+                }
+            }
+            .padding(.bottom, 8)
+
+            if transactions.isEmpty {
+                HStack(spacing: 12) {
+                    IconBadge(systemName: "list.bullet", color: .inkTertiary, size: 32)
+                    Text("No transactions this pay period.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.inkTertiary)
+                }
+                .padding(.vertical, 4)
+            } else {
+                let visible = Array(transactions.prefix(Self.previewCount))
+                VStack(spacing: 8) {
+                    ForEach(Array(visible.enumerated()), id: \.element.persistentModelID) { index, transaction in
+                        VStack(alignment: .leading, spacing: 2) {
+                            TransactionRowView(transaction: transaction)
+                            Text(transaction.date, format: .dateTime.month(.abbreviated).day())
+                                .font(.rowDetail)
+                                .foregroundStyle(Color.inkTertiary)
+                                .padding(.leading, 52)
+                        }
+                        if index < visible.count - 1 {
+                            Divider().overlay(Color.hairline).padding(.leading, 52)
+                        }
+                    }
+                }
+            }
+        }
+        .cardStyle()
     }
 }
