@@ -152,7 +152,7 @@ enum DataExportService {
                 amountString(account.monthlyEmployeeContribution),
                 amountString(account.monthlyEmployerContribution),
                 amountString(account.stockAllocationPercent),
-                account.costBasis.map(amountString) ?? ""
+                account.costBasis.map { amountString($0) } ?? ""
             ])
         }
         return csv
