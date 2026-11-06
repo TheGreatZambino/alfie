@@ -29,6 +29,9 @@ struct SpendingByCategoryCard: View {
                     }
                 }
                 .chartXAxis(.hidden)
+                // Keep sorted order top-to-bottom and leave room on the right for the amount labels.
+                .chartYScale(domain: items.map(\.category.name))
+                .chartXScale(domain: 0...((items.map(\.amount).max() ?? 1) * 1.45))
                 .frame(height: CGFloat(items.count) * 36 + 20)
             }
         }

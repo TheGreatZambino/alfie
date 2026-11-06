@@ -6,6 +6,7 @@ enum AppTab: Hashable {
     case finances
     case workouts
     case nutrition
+    case retirement
 
     var pillarColor: Color {
         switch self {
@@ -13,6 +14,7 @@ enum AppTab: Hashable {
         case .finances: return .money
         case .workouts: return .training
         case .nutrition: return .food
+        case .retirement: return .retirement
         }
     }
 }
@@ -66,6 +68,13 @@ struct ContentView: View {
                         if trackedModules.contains(.nutrition) {
                             Tab("Nutrition", systemImage: "fork.knife", value: AppTab.nutrition) {
                                 NutritionView()
+                                .activeWorkoutBar()
+                            }
+                        }
+
+                        if trackedModules.contains(.retirement) {
+                            Tab("Retirement", systemImage: "chart.line.uptrend.xyaxis", value: AppTab.retirement) {
+                                RetirementView()
                                 .activeWorkoutBar()
                             }
                         }
@@ -138,6 +147,7 @@ struct ContentView: View {
         case .finances: return trackedModules.contains(.finance)
         case .workouts: return trackedModules.contains(.workouts)
         case .nutrition: return trackedModules.contains(.nutrition)
+        case .retirement: return trackedModules.contains(.retirement)
         }
     }
 
@@ -232,7 +242,7 @@ struct ContentView: View {
     ContentView()
         .environmentObject(AuthManager())
         .modelContainer(for: [
-            Income.self, Category.self, Bill.self, Transaction.self, SavingsAccount.self, RetirementAccount.self,
+            Income.self, Category.self, Bill.self, Transaction.self, SavingsAccount.self, RetirementAccount.self, RetirementPlan.self, PlanPerson.self,
             Exercise.self, WorkoutTemplate.self, TemplateExerciseEntry.self, TemplateSetEntry.self,
             WorkoutSession.self, LoggedSet.self, WorkoutGoals.self,
             FoodItem.self, NutritionEntry.self, NutritionGoals.self

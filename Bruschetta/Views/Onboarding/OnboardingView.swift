@@ -22,7 +22,7 @@ struct OnboardingView: View {
     }
 
     @State private var stepIndex: Int = 0
-    @State private var selectedModules: Set<TrackedModule> = Set(TrackedModule.allCases)
+    @State private var selectedModules: Set<TrackedModule> = TrackedModule.defaultModules
     @State private var amountText: String = ""
     @State private var cadence: PayCadence = .biweekly
     @State private var nextPayDate: Date = Date()

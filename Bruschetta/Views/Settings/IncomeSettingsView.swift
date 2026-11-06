@@ -43,7 +43,7 @@ struct IncomeSettingsView: View {
         guard let income = incomes.first else { return }
         amountText = String(format: "%.2f", income.amount)
         cadence = income.cadence
-        nextPayDate = income.nextPayDate
+        nextPayDate = income.upcomingPayDate
     }
 
     private func parsedAmount(_ text: String) -> Double? {

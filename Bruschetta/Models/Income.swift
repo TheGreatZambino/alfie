@@ -26,6 +26,11 @@ final class Income {
         PayPeriodCalculator.nextPayDate(after: date, cadence: cadence)
     }
 
+    /// Next upcoming pay date, rolled forward automatically as pay dates pass.
+    var upcomingPayDate: Date {
+        PayPeriodCalculator.upcomingPayDate(nextPayDate: nextPayDate, cadence: cadence)
+    }
+
     var currentPayPeriod: PayPeriod {
         PayPeriodCalculator.currentPayPeriod(nextPayDate: nextPayDate, cadence: cadence)
     }

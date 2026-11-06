@@ -17,15 +17,20 @@ enum DataExportService {
         income: Income?,
         savingsAccounts: [SavingsAccount],
         retirementAccounts: [RetirementAccount] = [],
+        retirementPlan: RetirementPlan? = nil,
+        planPeople: [PlanPerson] = [],
         workoutSessions: [WorkoutSession],
         nutritionEntries: [NutritionEntry],
         waterEntries: [WaterEntry]
     ) -> [URL] {
-        let files: [(name: String, contents: String)] = [
+        var files: [(name: String, contents: String)] = [
             ("Finances.csv", financesCSV(transactions: transactions, bills: bills, income: income, savingsAccounts: savingsAccounts, retirementAccounts: retirementAccounts)),
             ("Workouts.csv", workoutsCSV(sessions: workoutSessions)),
             ("Nutrition.csv", nutritionCSV(entries: nutritionEntries, waterEntries: waterEntries))
         ]
+        if let retirementPlan, retirementPlan.isSetupComplete {
+            files.append(("Retirement.csv", retirementCSV(plan: retirementPlan, people: planPeople, accounts: retirementAccounts)))
+        }
 
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AlfieTrackExport-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -102,6 +107,44 @@ enum DataExportService {
             csv += csvRow([account.name, account.type.rawValue, amountString(account.balance)])
         }
 
+        return csv
+    }
+
+    // MARK: - Retirement
+
+    private static func retirementCSV(plan: RetirementPlan, people: [PlanPerson], accounts: [RetirementAccount]) -> String {
+        var csv = "Retirement Plan\n"
+        csv += csvRow(["Filing Status", "Target Mode", "Target Percent of Gross", "Target Dollars per Year"])
+        csv += csvRow([
+            plan.isCouple ? "Married filing jointly" : "Single",
+            plan.targetMode.rawValue,
+            amountString(plan.targetPercent),
+            amountString(plan.targetDollars)
+        ])
+
+        csv += "\nPeople\n"
+        csv += csvRow(["Name", "Birth Date", "Gross Annual Income", "Retirement Age"])
+        for person in people.sorted(by: { $0.order < $1.order }) {
+            csv += csvRow([
+                person.name,
+                dateFormatter.string(from: person.birthDate),
+                amountString(person.grossAnnualIncome),
+                String(person.retirementAge)
+            ])
+        }
+
+        csv += "\nAccounts\n"
+        csv += csvRow(["Name", "Type", "Tax Bucket", "Owner", "Balance", "Balance Last Updated"])
+        for account in accounts.sorted(by: { $0.name < $1.name }) {
+            csv += csvRow([
+                account.name,
+                account.type.rawValue,
+                account.bucket.title,
+                String(account.ownerOrder + 1),
+                amountString(account.balance),
+                account.balanceUpdatedAt.map(dateFormatter.string) ?? ""
+            ])
+        }
         return csv
     }
 

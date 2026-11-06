@@ -6,6 +6,7 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
     case finance
     case workouts
     case nutrition
+    case retirement
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
         case .finance: return "Finances"
         case .workouts: return "Workouts"
         case .nutrition: return "Nutrition"
+        case .retirement: return "Retirement"
         }
     }
 
@@ -22,6 +24,7 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
         case .finance: return "wallet.bifold.fill"
         case .workouts: return "figure.strengthtraining.traditional"
         case .nutrition: return "fork.knife"
+        case .retirement: return "chart.line.uptrend.xyaxis"
         }
     }
 
@@ -51,19 +54,32 @@ enum TrackedModule: String, CaseIterable, Identifiable, Hashable {
                 ReminderSlot(secondsFromMidnight: 14 * 3600, title: "Stay hydrated", body: "How's your water intake looking? Log it and keep hydrating."),
                 ReminderSlot(secondsFromMidnight: 18 * 3600, title: "Stay hydrated", body: "Log today's water intake — and don't forget to drink more water.")
             ]
+        case .retirement:
+            return [
+                ReminderSlot(
+                    secondsFromMidnight: 9 * 3600,
+                    title: "Update your retirement balances",
+                    body: "Take a minute to refresh your account balances so your projections stay accurate.",
+                    dayOfMonth: 1
+                )
+            ]
         }
     }
 
     static let storageKey = "trackedModules"
 
-    /// All modules, joined for the default @AppStorage value.
-    static let defaultRawValue = allCases.map(\.rawValue).joined(separator: ",")
+    /// Modules tracked by default. Retirement is opt-in so users who don't want it are never
+    /// asked for the extra income details it needs.
+    static let defaultModules: Set<TrackedModule> = [.finance, .workouts, .nutrition]
+
+    /// The default modules, joined for the default @AppStorage value.
+    static let defaultRawValue = allCases.filter(defaultModules.contains).map(\.rawValue).joined(separator: ",")
 
     static func set(fromRawValue rawValue: String) -> Set<TrackedModule> {
         let modules = rawValue
             .split(separator: ",")
             .compactMap { TrackedModule(rawValue: String($0)) }
-        return modules.isEmpty ? Set(allCases) : Set(modules)
+        return modules.isEmpty ? defaultModules : Set(modules)
     }
 
     static func rawValue(from modules: Set<TrackedModule>) -> String {

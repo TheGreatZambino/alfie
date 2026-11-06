@@ -196,7 +196,7 @@ private struct RetirementAccountEditView: View {
         if let account {
             account.name = trimmed
             account.type = type
-            account.balance = balance
+            account.updateBalance(balance)
         } else {
             modelContext.insert(RetirementAccount(name: trimmed, type: type, balance: balance))
         }

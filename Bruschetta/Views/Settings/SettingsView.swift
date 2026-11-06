@@ -30,6 +30,8 @@ struct SettingsView: View {
     @Query private var bills: [Bill]
     @Query private var savingsAccounts: [SavingsAccount]
     @Query private var retirementAccounts: [RetirementAccount]
+    @Query private var retirementPlans: [RetirementPlan]
+    @Query private var planPeople: [PlanPerson]
     @Query private var workoutGoals: [WorkoutGoals]
     @Query private var nutritionGoals: [NutritionGoals]
     @Query private var categories: [Category]
@@ -318,6 +320,8 @@ struct SettingsView: View {
             income: income,
             savingsAccounts: savingsAccounts,
             retirementAccounts: retirementAccounts,
+            retirementPlan: retirementPlans.first,
+            planPeople: planPeople,
             workoutSessions: workoutSessions,
             nutritionEntries: nutritionEntries,
             waterEntries: waterEntries
@@ -374,7 +378,7 @@ struct SettingsView: View {
     private var incomeSubtitle: String {
         guard let income else { return "Not set up" }
         let amount = income.amount.formatted(.currency(code: "USD").precision(.fractionLength(0)))
-        let next = income.nextPayDate.formatted(.dateTime.month(.abbreviated).day())
+        let next = income.upcomingPayDate.formatted(.dateTime.month(.abbreviated).day())
         return "\(amount) \(income.cadence.displayName.lowercased()) · next \(next)"
     }
 

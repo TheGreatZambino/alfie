@@ -6,6 +6,8 @@ struct AdSlot: View {
     @ObservedObject private var subscriptions = SubscriptionManager.shared
     @ObservedObject private var ads = GoogleMobileAdsInitializer.shared
     @State private var showPaywall = false
+    @State private var hasLoadedAd = false
+    @State private var loadFailed = false
 
     var body: some View {
         if !subscriptions.isSubscribed {
@@ -21,8 +23,17 @@ struct AdSlot: View {
 
                 // No ad request until the ATT prompt has been answered.
                 if ads.isReady {
-                    BannerAdView()
-                        .frame(height: BannerAdViewController.approximateHeight)
+                    // Collapse the gap when no ad fills. A failed refresh keeps the previous ad on
+                    // screen, so only collapse if nothing has loaded; a later fill re-expands it.
+                    BannerAdView { loaded in
+                        if loaded {
+                            hasLoadedAd = true
+                            loadFailed = false
+                        } else if !hasLoadedAd {
+                            loadFailed = true
+                        }
+                    }
+                    .frame(height: loadFailed ? 0 : BannerAdViewController.approximateHeight)
                 } else {
                     Color.clear.frame(height: BannerAdViewController.approximateHeight)
                 }

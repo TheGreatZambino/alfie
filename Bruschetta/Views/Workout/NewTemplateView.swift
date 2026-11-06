@@ -365,6 +365,8 @@ private struct SetRow: View {
                     Text("reps")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -376,6 +378,8 @@ private struct SetRow: View {
                     Text("min:sec")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)

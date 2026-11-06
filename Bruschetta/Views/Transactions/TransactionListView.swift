@@ -18,7 +18,7 @@ struct TransactionListView: View {
             if !filtered.isEmpty {
                 Section {
                     SpendingByCategoryCard(items: spendingByCategory(from: filtered))
-                        .listRowInsets(EdgeInsets())
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         .listRowBackground(Color.clear)
                 }
             }

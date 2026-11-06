@@ -69,6 +69,7 @@ extension Color {
     static let money = Color.dynamic(light: "#0E7C6B", dark: "#14A18B")
     static let training = Color.dynamic(light: "#C05E45", dark: "#E0785C")
     static let food = Color.dynamic(light: "#A07A22", dark: "#C9A03A")
+    static let retirement = Color.dynamic(light: "#3F5E94", dark: "#7C9CD4")
 
     /// Solid brand fills that stay constant across modes: the Finances balance card, the Workouts
     /// start card, both floating action buttons, and primary buttons. Never use these for text,
@@ -76,6 +77,7 @@ extension Color {
     static let moneyFill = Color(hex: "#0E7C6B")
     static let trainingFill = Color(hex: "#C05E45")
     static let foodFill = Color(hex: "#A07A22")
+    static let retirementFill = Color(hex: "#3F5E94")
 
     /// 2+ workouts in a day on the calendar, and hitting a PR — constant across modes.
     static let workoutGold = Color(hex: "#D4AF37")
@@ -83,6 +85,7 @@ extension Color {
     static let moneyTint = Color.dynamic(r: 14, g: 124, b: 107, lightOpacity: 0.12, darkOpacity: 0.18)
     static let trainingTint = Color.dynamic(r: 192, g: 94, b: 69, lightOpacity: 0.12, darkOpacity: 0.18)
     static let foodTint = Color.dynamic(r: 160, g: 122, b: 34, lightOpacity: 0.12, darkOpacity: 0.18)
+    static let retirementTint = Color.dynamic(r: 63, g: 94, b: 148, lightOpacity: 0.12, darkOpacity: 0.18)
 
     /// Temporary alias kept while the app migrates off the old single-accent scheme.
     /// TODO(remove after redesign): delete once no call sites reference `appAccent`.

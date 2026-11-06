@@ -459,6 +459,8 @@ private struct ActiveSetRow: View {
                     Text("reps")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)

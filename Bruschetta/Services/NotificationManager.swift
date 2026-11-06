@@ -60,6 +60,7 @@ final class NotificationManager: NSObject, ObservableObject {
             var components = DateComponents()
             components.hour = slot.secondsFromMidnight / 3600
             components.minute = (slot.secondsFromMidnight % 3600) / 60
+            components.day = slot.dayOfMonth  // nil repeats daily; a value repeats monthly
 
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
             let request = UNNotificationRequest(identifier: identifier(for: module, slotIndex: index), content: content, trigger: trigger)
@@ -91,6 +92,8 @@ struct ReminderSlot {
     let secondsFromMidnight: Int
     let title: String
     let body: String
+    /// When set, the reminder repeats monthly on this day instead of daily.
+    var dayOfMonth: Int? = nil
 }
 
 enum ReminderPreferenceKeys {

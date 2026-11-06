@@ -30,6 +30,19 @@ enum PayPeriodCalculator {
         while periodStart > today {
             periodStart = previousPayDate(before: periodStart, cadence: cadence)
         }
+        // If the stored pay date has passed, roll forward so the period tracks today
+        // without requiring the user to re-enter the date in Settings.
+        if periodStart < today {
+            let anchor = periodStart
+            var k = 0
+            while true {
+                let candidate = advance(anchor, cadence: cadence, steps: k + 1, calendar: cal)
+                if candidate > today { break }
+                k += 1
+                if k > 5000 { break }
+            }
+            periodStart = advance(anchor, cadence: cadence, steps: k, calendar: cal)
+        }
 
         // End of period = 23:59:59 on the day before the next pay date
         let nextPay = nextDate(after: periodStart, cadence: cadence, calendar: cal)
@@ -37,6 +50,13 @@ enum PayPeriodCalculator {
         let periodEnd = cal.date(bySettingHour: 23, minute: 59, second: 59, of: periodEndDay) ?? periodEndDay
 
         return PayPeriod(start: periodStart, end: periodEnd)
+    }
+
+    /// The next pay date on or after today, derived from the stored anchor date.
+    static func upcomingPayDate(nextPayDate: Date, cadence: PayCadence) -> Date {
+        let period = currentPayPeriod(nextPayDate: nextPayDate, cadence: cadence)
+        let cal = Calendar.current
+        return cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: period.end)) ?? period.end
     }
 
     static func nextPayDate(after date: Date, cadence: PayCadence) -> Date {
@@ -83,6 +103,20 @@ enum PayPeriodCalculator {
     }
 
     // MARK: - Private
+
+    /// Advances `steps` pay periods from `anchor`, computing from the anchor to avoid month-end drift.
+    private static func advance(_ anchor: Date, cadence: PayCadence, steps: Int, calendar: Calendar) -> Date {
+        guard steps > 0 else { return anchor }
+        switch cadence {
+        case .weekly: return calendar.date(byAdding: .day, value: 7 * steps, to: anchor) ?? anchor
+        case .biweekly: return calendar.date(byAdding: .day, value: 14 * steps, to: anchor) ?? anchor
+        case .monthly: return calendar.date(byAdding: .month, value: steps, to: anchor) ?? anchor
+        case .semiMonthly:
+            var d = anchor
+            for _ in 0 ..< steps { d = nextSemiMonthly(after: d, calendar: calendar) }
+            return d
+        }
+    }
 
     private static func nextDate(after date: Date, cadence: PayCadence, calendar: Calendar) -> Date {
         switch cadence {
