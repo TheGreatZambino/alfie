@@ -15,8 +15,35 @@ struct RetirementAccountsView: View {
 
     private var isCouple: Bool { plans.first?.isCouple ?? false }
 
+    private var limitWarnings: [ContributionWarning] {
+        ContributionLimitChecker.warnings(
+            entries: accounts.map {
+                .init(type: $0.type, ownerOrder: $0.ownerOrder, monthlyEmployeeContribution: $0.monthlyEmployeeContribution)
+            },
+            ageAtEndOfYearByOwner: Dictionary(uniqueKeysWithValues: people.map { ($0.order, $0.ageAtEndOfYear) })
+        )
+    }
+
     var body: some View {
         List {
+            if !limitWarnings.isEmpty {
+                Section {
+                    ForEach(limitWarnings) { warning in
+                        Label {
+                            Text(message(for: warning))
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.ink)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.training)
+                        }
+                    }
+                } header: {
+                    Text("Contribution limits")
+                } footer: {
+                    Text("Compared with IRS \(ContributionLimits.current.taxYear) limits. Employer contributions aren't counted.")
+                }
+            }
+
             if !accounts.isEmpty {
                 Section {
                     Button {
@@ -89,6 +116,18 @@ struct RetirementAccountsView: View {
         }
     }
 
+    private func message(for warning: ContributionWarning) -> String {
+        let amount = warning.annualAmount.formatted(.currency(code: "USD").precision(.fractionLength(0)))
+        let limit = warning.limit.formatted(.currency(code: "USD").precision(.fractionLength(0)))
+        let who: String
+        if isCouple, let owner = people.first(where: { $0.order == warning.ownerOrder }) {
+            who = "\(owner.displayName(fallbackIndex: owner.order))'s "
+        } else {
+            who = "Your "
+        }
+        return "\(who)\(warning.group.title) contributions of \(amount) a year are over the \(limit) limit."
+    }
+
     private func total(of accounts: [RetirementAccount]) -> Double {
         accounts.reduce(0) { $0 + $1.balance }
     }
@@ -114,10 +153,14 @@ struct RetirementAccountsView: View {
     }
 
     private func subtitle(for account: RetirementAccount) -> String {
-        guard isCouple, let owner = people.first(where: { $0.order == account.ownerOrder }) else {
-            return account.type.rawValue
+        var parts = [account.type.rawValue]
+        if isCouple, let owner = people.first(where: { $0.order == account.ownerOrder }) {
+            parts.append(owner.displayName(fallbackIndex: owner.order))
         }
-        return "\(account.type.rawValue) · \(owner.displayName(fallbackIndex: owner.order))"
+        if account.monthlyContribution > 0 {
+            parts.append("+\(account.monthlyContribution.formatted(.currency(code: "USD").precision(.fractionLength(0))))/mo")
+        }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -163,6 +206,9 @@ private struct RetirementAccountForm: View {
     @State private var type: RetirementAccountType = .k401
     @State private var ownerOrder = 0
     @State private var balanceText = ""
+    @State private var employeeText = ""
+    @State private var employerText = ""
+    @State private var stockPercent: Double = 60
 
     var body: some View {
         NavigationStack {
@@ -188,6 +234,42 @@ private struct RetirementAccountForm: View {
                 } footer: {
                     Text("Set this to your actual current balance.")
                 }
+
+                Section {
+                    HStack {
+                        Text("You add")
+                        Spacer()
+                        CurrencyTextField(placeholder: "0", text: $employeeText).frame(maxWidth: 120)
+                    }
+                    if type.bucket != .taxable {
+                        HStack {
+                            Text("Employer adds")
+                            Spacer()
+                            CurrencyTextField(placeholder: "0", text: $employerText).frame(maxWidth: 120)
+                        }
+                    }
+                } header: {
+                    Text("Monthly contributions")
+                } footer: {
+                    Text("Include your employer match or profit sharing as \"Employer adds\". Contributions are assumed to continue until retirement.")
+                }
+
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Stocks")
+                            Spacer()
+                            Text("\(Int(stockPercent))% stocks · \(100 - Int(stockPercent))% bonds")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.ink)
+                        }
+                        Slider(value: $stockPercent, in: 0...100, step: 5).tint(.retirement)
+                    }
+                } header: {
+                    Text("Investment mix")
+                } footer: {
+                    Text("Used to blend the stock and bond return assumptions for this account. Cash and other holdings are treated as bonds.")
+                }
             }
             .alfieListStyle()
             .navigationTitle(account == nil ? "New Account" : "Edit Account")
@@ -205,6 +287,9 @@ private struct RetirementAccountForm: View {
                 type = account.type
                 ownerOrder = account.ownerOrder
                 balanceText = String(format: "%.2f", account.balance)
+                employeeText = account.monthlyEmployeeContribution > 0 ? String(format: "%.2f", account.monthlyEmployeeContribution) : ""
+                employerText = account.monthlyEmployerContribution > 0 ? String(format: "%.2f", account.monthlyEmployerContribution) : ""
+                stockPercent = account.stockAllocationPercent
             }
             .onChange(of: type) { _, newType in
                 if account == nil, name.isEmpty || RetirementAccountType.allCases.contains(where: { $0.rawValue == name }) {
@@ -221,13 +306,20 @@ private struct RetirementAccountForm: View {
             account.name = trimmed
             account.type = type
             account.ownerOrder = ownerOrder
+            account.monthlyEmployeeContribution = Double(employeeText) ?? 0
+            account.monthlyEmployerContribution = type.bucket == .taxable ? 0 : (Double(employerText) ?? 0)
+            account.stockAllocationPercent = stockPercent
             if account.balance != balance || account.balanceUpdatedAt == nil {
                 account.updateBalance(balance)
             } else {
                 account.confirmBalance()
             }
         } else {
-            modelContext.insert(RetirementAccount(name: trimmed, type: type, balance: balance, ownerOrder: ownerOrder))
+            let new = RetirementAccount(name: trimmed, type: type, balance: balance, ownerOrder: ownerOrder)
+            new.monthlyEmployeeContribution = Double(employeeText) ?? 0
+            new.monthlyEmployerContribution = type.bucket == .taxable ? 0 : (Double(employerText) ?? 0)
+            new.stockAllocationPercent = stockPercent
+            modelContext.insert(new)
         }
         try? modelContext.save()
         dismiss()

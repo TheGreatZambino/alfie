@@ -114,12 +114,15 @@ enum DataExportService {
 
     private static func retirementCSV(plan: RetirementPlan, people: [PlanPerson], accounts: [RetirementAccount]) -> String {
         var csv = "Retirement Plan\n"
-        csv += csvRow(["Filing Status", "Target Mode", "Target Percent of Gross", "Target Dollars per Year"])
+        csv += csvRow(["Filing Status", "Target Mode", "Target Percent of Gross", "Target Dollars per Year", "Stock Real Return %", "Bond Real Return %", "Withdrawal Rate %"])
         csv += csvRow([
             plan.isCouple ? "Married filing jointly" : "Single",
             plan.targetMode.rawValue,
             amountString(plan.targetPercent),
-            amountString(plan.targetDollars)
+            amountString(plan.targetDollars),
+            amountString(plan.stockRealReturnPercent),
+            amountString(plan.bondRealReturnPercent),
+            amountString(plan.withdrawalRatePercent)
         ])
 
         csv += "\nPeople\n"
@@ -134,7 +137,7 @@ enum DataExportService {
         }
 
         csv += "\nAccounts\n"
-        csv += csvRow(["Name", "Type", "Tax Bucket", "Owner", "Balance", "Balance Last Updated"])
+        csv += csvRow(["Name", "Type", "Tax Bucket", "Owner", "Balance", "Balance Last Updated", "Monthly Employee Contribution", "Monthly Employer Contribution", "Stock Allocation %"])
         for account in accounts.sorted(by: { $0.name < $1.name }) {
             csv += csvRow([
                 account.name,
@@ -142,7 +145,10 @@ enum DataExportService {
                 account.bucket.title,
                 String(account.ownerOrder + 1),
                 amountString(account.balance),
-                account.balanceUpdatedAt.map(dateFormatter.string) ?? ""
+                account.balanceUpdatedAt.map(dateFormatter.string) ?? "",
+                amountString(account.monthlyEmployeeContribution),
+                amountString(account.monthlyEmployerContribution),
+                amountString(account.stockAllocationPercent)
             ])
         }
         return csv

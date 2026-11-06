@@ -34,6 +34,10 @@ struct RetirementView: View {
                     header
                     if let plan, !people.isEmpty {
                         targetCard(plan: plan)
+                        if let outlook = RetirementProjector.outlook(plan: plan, people: allPeople, accounts: accounts) {
+                            OnTrackCard(outlook: outlook, plan: plan)
+                            if !accounts.isEmpty { ProjectionChartCard(outlook: outlook) }
+                        }
                         if !accounts.isEmpty, staleCount > 0 { staleBanner }
                         savedCard
                         projectionNote
@@ -247,7 +251,7 @@ struct RetirementView: View {
     }
 
     private var projectionNote: some View {
-        Text("Projections, Social Security and tax estimates are coming soon. Figures here are planning estimates, not financial advice.")
+        Text("Social Security and tax estimates are coming soon. Figures here are planning estimates, not financial advice.")
             .font(.rowDetail)
             .foregroundStyle(Color.inkTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -23,7 +23,36 @@ final class RetirementPlan {
     var targetDollars: Double = 0
     var isSetupComplete: Bool = false
 
+    // Projection assumptions. Returns are real (after inflation), so every result is in
+    // today's dollars. Defaults and their sources are listed in RetirementSources.
+    var stockRealReturnPercent: Double = RetirementPlan.defaultStockReturnPercent
+    var bondRealReturnPercent: Double = RetirementPlan.defaultBondReturnPercent
+    var withdrawalRatePercent: Double = RetirementPlan.defaultWithdrawalRatePercent
+
     static let defaultTargetPercent: Double = 80
+    static let defaultStockReturnPercent: Double = 5.0
+    static let defaultBondReturnPercent: Double = 1.5
+    static let defaultWithdrawalRatePercent: Double = 4.0
+
+    var assumptions: ProjectionAssumptions {
+        ProjectionAssumptions(
+            stockRealReturn: stockRealReturnPercent / 100,
+            bondRealReturn: bondRealReturnPercent / 100,
+            withdrawalRate: withdrawalRatePercent / 100
+        )
+    }
+
+    var isUsingDefaultAssumptions: Bool {
+        stockRealReturnPercent == RetirementPlan.defaultStockReturnPercent
+            && bondRealReturnPercent == RetirementPlan.defaultBondReturnPercent
+            && withdrawalRatePercent == RetirementPlan.defaultWithdrawalRatePercent
+    }
+
+    func resetAssumptions() {
+        stockRealReturnPercent = RetirementPlan.defaultStockReturnPercent
+        bondRealReturnPercent = RetirementPlan.defaultBondReturnPercent
+        withdrawalRatePercent = RetirementPlan.defaultWithdrawalRatePercent
+    }
 
     init(isCouple: Bool = false) {
         self.isCouple = isCouple
@@ -75,6 +104,19 @@ final class PlanPerson {
 
     var yearsToRetirement: Int {
         max(0, retirementAge - age)
+    }
+
+    /// Whole months from now until this person reaches their retirement age.
+    var monthsToRetirement: Int {
+        let ageInMonths = Calendar.current.dateComponents([.month], from: birthDate, to: Date()).month ?? 0
+        return max(0, retirementAge * 12 - ageInMonths)
+    }
+
+    /// Age reached by the end of this calendar year, which is what contribution catch-up
+    /// eligibility is based on.
+    var ageAtEndOfYear: Int {
+        let calendar = Calendar.current
+        return calendar.component(.year, from: Date()) - calendar.component(.year, from: birthDate)
     }
 
     func displayName(fallbackIndex: Int) -> String {

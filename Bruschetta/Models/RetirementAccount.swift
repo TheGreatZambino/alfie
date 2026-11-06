@@ -66,6 +66,12 @@ final class RetirementAccount {
     /// When the balance was last confirmed. Nil means it has never been confirmed in the
     /// Retirement tab, so it's treated as stale.
     var balanceUpdatedAt: Date?
+    /// What the owner contributes each month, before any employer contribution.
+    var monthlyEmployeeContribution: Double = 0
+    /// What an employer adds each month (match or profit sharing).
+    var monthlyEmployerContribution: Double = 0
+    /// Share of the account held in stocks, 0 to 100. The rest is treated as bonds.
+    var stockAllocationPercent: Double = 60
 
     var type: RetirementAccountType {
         get { RetirementAccountType(rawValue: typeRaw) ?? .other }
@@ -73,6 +79,8 @@ final class RetirementAccount {
     }
 
     var bucket: TaxBucket { type.bucket }
+
+    var monthlyContribution: Double { monthlyEmployeeContribution + monthlyEmployerContribution }
 
     init(name: String, type: RetirementAccountType = .k401, balance: Double = 0, ownerOrder: Int = 0) {
         self.name = name
