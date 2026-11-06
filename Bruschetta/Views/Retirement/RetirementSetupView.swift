@@ -18,10 +18,12 @@ struct RetirementSetupView: View {
         var birthDate = Calendar.current.date(byAdding: .year, value: -35, to: Date()) ?? Date()
         var grossText = ""
         var retirementAge = 67
+        var socialSecurityText = ""
+        var claimingAge = 67
     }
 
     private enum Step: Int, CaseIterable {
-        case household, people, target
+        case household, people, socialSecurity, target
     }
 
     @State private var step: Step = .household
@@ -44,6 +46,7 @@ struct RetirementSetupView: View {
         switch step {
         case .household: return true
         case .people: return drafts.prefix(activeCount).allSatisfy { (Double($0.grossText) ?? 0) > 0 }
+        case .socialSecurity: return true
         case .target:
             return targetMode == .percentOfGross ? targetPercent > 0 : targetDollars > 0
         }
@@ -55,6 +58,7 @@ struct RetirementSetupView: View {
                 switch step {
                 case .household: householdStep
                 case .people: peopleStep
+                case .socialSecurity: socialSecurityStep
                 case .target: targetStep
                 }
             }
@@ -75,6 +79,7 @@ struct RetirementSetupView: View {
         switch step {
         case .household: return "Who is this for?"
         case .people: return "About you"
+        case .socialSecurity: return "Social Security"
         case .target: return "Retirement income goal"
         }
     }
@@ -145,6 +150,48 @@ struct RetirementSetupView: View {
             Text("Enter pay before taxes and deductions, not take-home. For reference, your take-home pay in Finances works out to about \(takeHomeYearly.formatted(.currency(code: "USD").precision(.fractionLength(0)))) a year, so gross pay will be higher.")
         } else {
             Text("Enter pay before taxes and deductions, not take-home. Retirement planning uses gross income because taxes and Social Security are based on it.")
+        }
+    }
+
+    private var socialSecurityStep: some View {
+        Form {
+            ForEach(0..<activeCount, id: \.self) { index in
+                let draft = drafts[index]
+                let birthYear = Calendar.current.component(.year, from: draft.birthDate)
+                let estimate = SocialSecurityCalculator.estimatedPIA(annualGross: Double(draft.grossText) ?? 0)
+                let atFRA = Double(draft.socialSecurityText).flatMap { $0 > 0 ? $0 : nil } ?? estimate
+                let monthly = SocialSecurityCalculator.monthlyBenefit(piaAtFRA: atFRA, claimAge: draft.claimingAge, birthYear: birthYear)
+                Section {
+                    HStack {
+                        Text("Monthly benefit at full retirement age")
+                            .font(.system(size: 15))
+                        Spacer()
+                        CurrencyTextField(placeholder: "0", text: $drafts[index].socialSecurityText)
+                            .frame(maxWidth: 110)
+                    }
+                    Stepper(value: $drafts[index].claimingAge, in: 62...70) {
+                        HStack {
+                            Text("Start benefits at")
+                            Spacer()
+                            Text("\(drafts[index].claimingAge)").foregroundStyle(Color.inkSecondary)
+                        }
+                    }
+                    HStack {
+                        Text("Estimated monthly benefit")
+                            .foregroundStyle(Color.inkSecondary)
+                        Spacer()
+                        Text(monthly.formatted(.currency(code: "USD").precision(.fractionLength(0))))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.ink)
+                    }
+                } header: {
+                    if isCouple { Text(index == 0 ? "You" : "Your partner") }
+                } footer: {
+                    if index == activeCount - 1 {
+                        Text("Enter the amount at full retirement age from your statement at ssa.gov/myaccount. If you leave it blank, the app estimates it from your gross income assuming a full 35-year career, which is only a rough guide. Starting before full retirement age reduces the benefit; waiting until 70 increases it.")
+                    }
+                }
+            }
         }
     }
 
@@ -266,7 +313,9 @@ struct RetirementSetupView: View {
                 name: person.name,
                 birthDate: person.birthDate,
                 grossText: person.grossAnnualIncome > 0 ? String(format: "%.2f", person.grossAnnualIncome) : "",
-                retirementAge: person.retirementAge
+                retirementAge: person.retirementAge,
+                socialSecurityText: person.socialSecurityMonthlyAtFRA > 0 ? String(format: "%.2f", person.socialSecurityMonthlyAtFRA) : "",
+                claimingAge: person.claimingAge
             )
         }
     }
@@ -294,6 +343,8 @@ struct RetirementSetupView: View {
             person.birthDate = draft.birthDate
             person.grossAnnualIncome = Double(draft.grossText) ?? 0
             person.retirementAge = draft.retirementAge
+            person.socialSecurityMonthlyAtFRA = Double(draft.socialSecurityText) ?? 0
+            person.claimingAge = draft.claimingAge
         }
 
         // Switching back to a single filer: drop the partner and hand their accounts to the user.

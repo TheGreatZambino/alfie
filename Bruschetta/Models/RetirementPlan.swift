@@ -27,31 +27,39 @@ final class RetirementPlan {
     // today's dollars. Defaults and their sources are listed in RetirementSources.
     var stockRealReturnPercent: Double = RetirementPlan.defaultStockReturnPercent
     var bondRealReturnPercent: Double = RetirementPlan.defaultBondReturnPercent
+    /// No longer used by the projection (retirement income is now simulated year by year).
     var withdrawalRatePercent: Double = RetirementPlan.defaultWithdrawalRatePercent
+    /// Age the plan must fund through; the youngest person reaching this age ends the plan.
+    var planToAge: Int = RetirementPlan.defaultPlanToAge
+    /// Flat state income tax rate applied to taxable withdrawals and gains. Social Security is
+    /// treated as untaxed by the state.
+    var stateTaxRatePercent: Double = 0
 
     static let defaultTargetPercent: Double = 80
     static let defaultStockReturnPercent: Double = 5.0
     static let defaultBondReturnPercent: Double = 1.5
     static let defaultWithdrawalRatePercent: Double = 4.0
+    static let defaultPlanToAge = 90
 
     var assumptions: ProjectionAssumptions {
         ProjectionAssumptions(
             stockRealReturn: stockRealReturnPercent / 100,
-            bondRealReturn: bondRealReturnPercent / 100,
-            withdrawalRate: withdrawalRatePercent / 100
+            bondRealReturn: bondRealReturnPercent / 100
         )
     }
 
     var isUsingDefaultAssumptions: Bool {
         stockRealReturnPercent == RetirementPlan.defaultStockReturnPercent
             && bondRealReturnPercent == RetirementPlan.defaultBondReturnPercent
-            && withdrawalRatePercent == RetirementPlan.defaultWithdrawalRatePercent
+            && planToAge == RetirementPlan.defaultPlanToAge
+            && stateTaxRatePercent == 0
     }
 
     func resetAssumptions() {
         stockRealReturnPercent = RetirementPlan.defaultStockReturnPercent
         bondRealReturnPercent = RetirementPlan.defaultBondReturnPercent
-        withdrawalRatePercent = RetirementPlan.defaultWithdrawalRatePercent
+        planToAge = RetirementPlan.defaultPlanToAge
+        stateTaxRatePercent = 0
     }
 
     init(isCouple: Bool = false) {
@@ -87,6 +95,11 @@ final class PlanPerson {
     /// Annual income before taxes and deductions.
     var grossAnnualIncome: Double = 0
     var retirementAge: Int = 67
+    /// Monthly Social Security benefit at full retirement age, from the person's ssa.gov
+    /// statement. Zero means the app estimates it from gross income.
+    var socialSecurityMonthlyAtFRA: Double = 0
+    /// Age (62 to 70) the person plans to start Social Security.
+    var claimingAge: Int = 67
 
     init(order: Int, name: String = "", birthDate: Date? = nil, grossAnnualIncome: Double = 0, retirementAge: Int = 67) {
         self.order = order
@@ -105,6 +118,12 @@ final class PlanPerson {
     var yearsToRetirement: Int {
         max(0, retirementAge - age)
     }
+
+    var ageInMonths: Int {
+        Calendar.current.dateComponents([.month], from: birthDate, to: Date()).month ?? 0
+    }
+
+    var birthYear: Int { Calendar.current.component(.year, from: birthDate) }
 
     /// Whole months from now until this person reaches their retirement age.
     var monthsToRetirement: Int {

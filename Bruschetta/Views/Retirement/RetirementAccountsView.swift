@@ -209,6 +209,7 @@ private struct RetirementAccountForm: View {
     @State private var employeeText = ""
     @State private var employerText = ""
     @State private var stockPercent: Double = 60
+    @State private var costBasisText = ""
 
     var body: some View {
         NavigationStack {
@@ -254,6 +255,16 @@ private struct RetirementAccountForm: View {
                     Text("Include your employer match or profit sharing as \"Employer adds\". Contributions are assumed to continue until retirement.")
                 }
 
+                if type.bucket == .taxable {
+                    Section {
+                        CurrencyTextField(placeholder: "Cost basis", text: $costBasisText)
+                    } header: {
+                        Text("Cost basis")
+                    } footer: {
+                        Text("What you paid in for the investments you hold. Only the gain above this is taxed when you sell. Leave blank if unknown and the app assumes no gain, which understates taxes.")
+                    }
+                }
+
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
@@ -290,6 +301,7 @@ private struct RetirementAccountForm: View {
                 employeeText = account.monthlyEmployeeContribution > 0 ? String(format: "%.2f", account.monthlyEmployeeContribution) : ""
                 employerText = account.monthlyEmployerContribution > 0 ? String(format: "%.2f", account.monthlyEmployerContribution) : ""
                 stockPercent = account.stockAllocationPercent
+                costBasisText = account.costBasis.map { String(format: "%.2f", $0) } ?? ""
             }
             .onChange(of: type) { _, newType in
                 if account == nil, name.isEmpty || RetirementAccountType.allCases.contains(where: { $0.rawValue == name }) {
@@ -309,6 +321,7 @@ private struct RetirementAccountForm: View {
             account.monthlyEmployeeContribution = Double(employeeText) ?? 0
             account.monthlyEmployerContribution = type.bucket == .taxable ? 0 : (Double(employerText) ?? 0)
             account.stockAllocationPercent = stockPercent
+            account.costBasis = type.bucket == .taxable ? Double(costBasisText) : nil
             if account.balance != balance || account.balanceUpdatedAt == nil {
                 account.updateBalance(balance)
             } else {
@@ -319,6 +332,7 @@ private struct RetirementAccountForm: View {
             new.monthlyEmployeeContribution = Double(employeeText) ?? 0
             new.monthlyEmployerContribution = type.bucket == .taxable ? 0 : (Double(employerText) ?? 0)
             new.stockAllocationPercent = stockPercent
+            new.costBasis = type.bucket == .taxable ? Double(costBasisText) : nil
             modelContext.insert(new)
         }
         try? modelContext.save()

@@ -114,7 +114,7 @@ enum DataExportService {
 
     private static func retirementCSV(plan: RetirementPlan, people: [PlanPerson], accounts: [RetirementAccount]) -> String {
         var csv = "Retirement Plan\n"
-        csv += csvRow(["Filing Status", "Target Mode", "Target Percent of Gross", "Target Dollars per Year", "Stock Real Return %", "Bond Real Return %", "Withdrawal Rate %"])
+        csv += csvRow(["Filing Status", "Target Mode", "Target Percent of Gross", "Target Dollars per Year", "Stock Real Return %", "Bond Real Return %", "Plan To Age", "State Tax %"])
         csv += csvRow([
             plan.isCouple ? "Married filing jointly" : "Single",
             plan.targetMode.rawValue,
@@ -122,22 +122,25 @@ enum DataExportService {
             amountString(plan.targetDollars),
             amountString(plan.stockRealReturnPercent),
             amountString(plan.bondRealReturnPercent),
-            amountString(plan.withdrawalRatePercent)
+            String(plan.planToAge),
+            amountString(plan.stateTaxRatePercent)
         ])
 
         csv += "\nPeople\n"
-        csv += csvRow(["Name", "Birth Date", "Gross Annual Income", "Retirement Age"])
+        csv += csvRow(["Name", "Birth Date", "Gross Annual Income", "Retirement Age", "Social Security Monthly At FRA", "Claiming Age"])
         for person in people.sorted(by: { $0.order < $1.order }) {
             csv += csvRow([
                 person.name,
                 dateFormatter.string(from: person.birthDate),
                 amountString(person.grossAnnualIncome),
-                String(person.retirementAge)
+                String(person.retirementAge),
+                amountString(person.socialSecurityMonthlyAtFRA),
+                String(person.claimingAge)
             ])
         }
 
         csv += "\nAccounts\n"
-        csv += csvRow(["Name", "Type", "Tax Bucket", "Owner", "Balance", "Balance Last Updated", "Monthly Employee Contribution", "Monthly Employer Contribution", "Stock Allocation %"])
+        csv += csvRow(["Name", "Type", "Tax Bucket", "Owner", "Balance", "Balance Last Updated", "Monthly Employee Contribution", "Monthly Employer Contribution", "Stock Allocation %", "Cost Basis"])
         for account in accounts.sorted(by: { $0.name < $1.name }) {
             csv += csvRow([
                 account.name,
@@ -148,7 +151,8 @@ enum DataExportService {
                 account.balanceUpdatedAt.map(dateFormatter.string) ?? "",
                 amountString(account.monthlyEmployeeContribution),
                 amountString(account.monthlyEmployerContribution),
-                amountString(account.stockAllocationPercent)
+                amountString(account.stockAllocationPercent),
+                account.costBasis.map(amountString) ?? ""
             ])
         }
         return csv

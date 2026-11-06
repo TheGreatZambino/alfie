@@ -1,9 +1,12 @@
 import SwiftUI
 import Charts
 
-/// "Are you on track?" card: projected savings against the savings needed for the income goal.
+private let currencyWhole = FloatingPointFormatStyle<Double>.Currency(code: "USD").precision(.fractionLength(0))
+
+/// "Are you on track?" card: whether the projected savings can fund the income goal through
+/// the plan-to age.
 struct OnTrackCard: View {
-    let outlook: RetirementOutlook
+    let report: RetirementReport
     let plan: RetirementPlan
 
     var body: some View {
@@ -16,51 +19,51 @@ struct OnTrackCard: View {
                 }
             }
 
-            if let status = outlook.status, let progress = outlook.progress {
-                HStack(spacing: 16) {
-                    ZStack {
-                        Circle().stroke(Color.retirementTint, lineWidth: 10)
-                        Circle()
-                            .trim(from: 0, to: min(progress, 1))
-                            .stroke(color(for: status), style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                        Text("\(Int((progress * 100).rounded()))%")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.ink)
-                    }
-                    .frame(width: 76, height: 76)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title(for: status))
-                            .font(.system(size: 19, weight: .bold))
-                            .foregroundStyle(color(for: status))
-                        Text(subtitle)
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.inkSecondary)
-                    }
-                }
-
-                VStack(spacing: 8) {
-                    row("Projected at retirement", outlook.expected)
-                    row("Savings needed", outlook.requiredNestEgg)
-                    if outlook.gap > 0 { row("Gap", outlook.gap, emphasize: true) }
-                }
-
-                if let extra = outlook.extraMonthlyNeeded {
-                    Label("Saving about \(extra.formatted(.currency(code: "USD").precision(.fractionLength(0)))) more per month would close the gap.", systemImage: "arrow.up.right.circle")
-                        .font(.system(size: 13, weight: .medium))
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle().stroke(Color.retirementTint, lineWidth: 10)
+                    Circle()
+                        .trim(from: 0, to: report.expected.fundedFraction)
+                        .stroke(color, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Text("\(Int((report.expected.fundedFraction * 100).rounded()))%")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.ink)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.retirementTint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-            } else {
-                Text("Set an income goal to see your progress.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.inkSecondary)
+                .frame(width: 76, height: 76)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(color)
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.inkSecondary)
+                }
             }
 
-            Text("Preliminary: this doesn't yet count Social Security or taxes, so it asks for more savings than your final estimate will. Results are in today's dollars.")
+            VStack(spacing: 8) {
+                row("Projected at retirement", report.accumulation.expected)
+                if let needed = report.neededAtRetirement {
+                    row("Savings needed", needed)
+                    if needed > report.accumulation.expected {
+                        row("Gap", needed - report.accumulation.expected, emphasize: true)
+                    }
+                }
+            }
+
+            scenarioLine
+
+            if let extra = report.extraMonthlyNeeded, extra > 0.5 {
+                Label("Saving about \(extra.formatted(currencyWhole)) more per month would close the gap.", systemImage: "arrow.up.right.circle")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.ink)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.retirementTint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            Text("Estimate in today's dollars. Your goal is treated as spending money after taxes. Includes Social Security and federal tax with simplifications; see Sources.")
                 .font(.rowDetail)
                 .foregroundStyle(Color.inkTertiary)
 
@@ -84,29 +87,50 @@ struct OnTrackCard: View {
     }
 
     private var summary: String {
-        String(format: "%.1f%% / %.1f%% / %.2g%%", plan.stockRealReturnPercent, plan.bondRealReturnPercent, plan.withdrawalRatePercent)
+        String(format: "%.1f%% / %.1f%% · to %d", plan.stockRealReturnPercent, plan.bondRealReturnPercent, plan.planToAge)
     }
 
-    private var subtitle: String {
-        let years = outlook.totalMonths / 12
-        let when = years == 0 ? "at retirement" : "in \(years) year\(years == 1 ? "" : "s")"
-        return "Projected savings \(when), compared with what your income goal needs."
-    }
-
-    private func title(for status: OnTrackStatus) -> String {
-        switch status {
+    private var title: String {
+        switch report.status {
         case .onTrack: return "On track"
         case .close: return "Close"
         case .behind: return "Behind"
         }
     }
 
-    private func color(for status: OnTrackStatus) -> Color {
-        switch status {
+    private var color: Color {
+        switch report.status {
         case .onTrack: return .money
         case .close: return .food
         case .behind: return .training
         }
+    }
+
+    private var subtitle: String {
+        if let age = report.expected.firstShortfallAge {
+            return "At this pace your money runs short around age \(age), before the plan-to age of \(report.planToAge)."
+        }
+        return "Your income goal is funded through age \(report.planToAge)."
+    }
+
+    private var scenarioLine: some View {
+        HStack(spacing: 10) {
+            scenario("Low", report.low)
+            scenario("Expected", report.expected)
+            scenario("High", report.high)
+        }
+    }
+
+    private func scenario(_ label: String, _ result: DrawdownResult) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.rowDetail).foregroundStyle(Color.inkTertiary)
+            Text(result.firstShortfallAge.map { "Short at \($0)" } ?? "Funded")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(result.isFullyFunded ? Color.money : Color.training)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.retirementTint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func row(_ label: String, _ value: Double, emphasize: Bool = false) -> some View {
@@ -124,7 +148,7 @@ struct OnTrackCard: View {
 
 /// Household savings from now until retirement, with a low/high range and the savings needed.
 struct ProjectionChartCard: View {
-    let outlook: RetirementOutlook
+    let report: RetirementReport
 
     private struct Band: Identifiable {
         let years: Double
@@ -133,6 +157,8 @@ struct ProjectionChartCard: View {
         var id: Double { years }
     }
 
+    private var outlook: RetirementOutlook { report.accumulation }
+
     private var bands: [Band] {
         zip(outlook.lowSeries, outlook.highSeries).map { Band(years: $0.years, low: $0.balance, high: $1.balance) }
     }
@@ -140,7 +166,7 @@ struct ProjectionChartCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("PROJECTED SAVINGS").sectionLabelStyle()
+                Text("SAVINGS UNTIL RETIREMENT").sectionLabelStyle()
                 Spacer()
                 Text("Today's dollars")
                     .font(.rowDetail)
@@ -163,8 +189,8 @@ struct ProjectionChartCard: View {
                             .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
                             .interpolationMethod(.monotone)
                     }
-                    if outlook.requiredNestEgg > 0 {
-                        RuleMark(y: .value("Needed", outlook.requiredNestEgg))
+                    if let needed = report.neededAtRetirement, needed > 0 {
+                        RuleMark(y: .value("Needed", needed))
                             .foregroundStyle(Color.training)
                             .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
                             .annotation(position: .top, alignment: .leading) {
@@ -214,6 +240,100 @@ struct ProjectionChartCard: View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 14, height: 6)
             Text(text).font(.rowDetail).foregroundStyle(Color.inkSecondary)
+        }
+    }
+}
+
+/// Where retirement income comes from each year, and what taxes take out.
+struct RetirementIncomeCard: View {
+    let report: RetirementReport
+
+    private struct Segment: Identifiable {
+        let age: Int
+        let source: String
+        let amount: Double
+        var id: String { "\(age)-\(source)" }
+    }
+
+    private static let sources = ["Social Security", "Taxable accounts", "Pre-tax accounts", "Roth accounts", "Taxes"]
+    private static let colors: [Color] = [.money, .food, .retirement, Color(hex: "#7C5CA8"), .training]
+
+    private var segments: [Segment] {
+        report.expected.years.flatMap { year in
+            [
+                Segment(age: year.age, source: "Social Security", amount: year.socialSecurity),
+                Segment(age: year.age, source: "Taxable accounts", amount: year.taxableWithdrawal),
+                Segment(age: year.age, source: "Pre-tax accounts", amount: year.preTaxWithdrawal),
+                Segment(age: year.age, source: "Roth accounts", amount: year.rothWithdrawal),
+                Segment(age: year.age, source: "Taxes", amount: -year.totalTaxes)
+            ]
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("RETIREMENT INCOME").sectionLabelStyle()
+                Spacer()
+                NavigationLink { RetirementSourcesView() } label: {
+                    Image(systemName: "info.circle").foregroundStyle(Color.inkTertiary)
+                }
+            }
+
+            if let first = report.firstYear {
+                VStack(spacing: 8) {
+                    line("Social Security", first.socialSecurity)
+                    line("From your accounts", first.taxableWithdrawal + first.preTaxWithdrawal + first.rothWithdrawal)
+                    line("Taxes", -first.totalTaxes)
+                    Divider().overlay(Color.hairline)
+                    line("Spendable (first year)", first.netIncome, bold: true)
+                }
+
+                Chart {
+                    ForEach(segments) { segment in
+                        BarMark(x: .value("Age", segment.age), y: .value("Amount", segment.amount))
+                            .foregroundStyle(by: .value("Source", segment.source))
+                    }
+                    RuleMark(y: .value("Goal", report.targetSpending))
+                        .foregroundStyle(Color.ink.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
+                }
+                .chartForegroundStyleScale(domain: Self.sources, range: Self.colors)
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisGridLine().foregroundStyle(Color.hairline)
+                        AxisValueLabel {
+                            if let amount = value.as(Double.self) {
+                                Text(amount, format: .currency(code: "USD").notation(.compactName).precision(.fractionLength(0...1)))
+                            }
+                        }
+                    }
+                }
+                .chartLegend(position: .bottom, alignment: .leading, spacing: 8)
+                .frame(height: 230)
+
+                Text("Dashed line is your spending goal. Bars above it pay the taxes shown below the axis.")
+                    .font(.rowDetail)
+                    .foregroundStyle(Color.inkTertiary)
+                if !report.expected.isFullyFunded {
+                    Text("Savings run out partway, so the chart ends where the goal can no longer be met.")
+                        .font(.rowDetail)
+                        .foregroundStyle(Color.training)
+                }
+            }
+        }
+        .cardStyle()
+    }
+
+    private func line(_ label: String, _ value: Double, bold: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, weight: bold ? .semibold : .regular))
+                .foregroundStyle(Color.inkSecondary)
+            Spacer()
+            Text(value, format: .currency(code: "USD").precision(.fractionLength(0)))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.ink)
         }
     }
 }

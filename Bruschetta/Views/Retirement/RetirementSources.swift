@@ -20,8 +20,8 @@ struct RetirementSource: Identifiable {
 enum RetirementSources {
     static let targetIncome = RetirementSource(
         id: "target-income",
-        title: "Target retirement income (80% of gross)",
-        usage: "The default target is 80% of your combined gross income. This is a common planning rule of thumb (retirees often plan for roughly 70–80% of pre-retirement income), not a rule or a government figure. It's a starting point: override it with a percent or a dollar amount that matches how you expect to spend.",
+        title: "Retirement income goal (80% of gross)",
+        usage: "The default goal is 80% of your combined gross income. This is a common planning rule of thumb (retirees often plan for roughly 70–80% of pre-retirement income), not a rule or a government figure. This app treats the goal as the spending money you want after taxes, which is more demanding than treating it as before-tax income. Override it with a percent or a dollar amount that matches how you expect to spend.",
         links: []
     )
 
@@ -52,11 +52,51 @@ enum RetirementSources {
         ]
     )
 
-    static let withdrawalRate = RetirementSource(
-        id: "withdrawal-rate",
-        title: "Savings needed for your goal (4% withdrawal rate)",
-        usage: "The savings needed is your yearly income goal divided by a withdrawal rate, 4% by default. The 4% figure comes from historical-simulation research: William P. Bengen, \"Determining Withdrawal Rates Using Historical Data,\" Journal of Financial Planning (1994), and Cooley, Hubbard and Walz, \"Retirement Savings: Choosing a Withdrawal Rate That Is Sustainable,\" AAII Journal (1998). It is a rule of thumb for a roughly 30-year retirement, not a guarantee. This early estimate does not yet count Social Security or taxes, so it asks for more savings than the final estimate will.",
+    static let retirementIncome = RetirementSource(
+        id: "retirement-income",
+        title: "How retirement income is simulated",
+        usage: "Starting when the last of you retires, each year the app adds Social Security, takes any required distributions, then withdraws from taxable accounts, then pre-tax accounts, then Roth accounts until your after-tax spending goal is met. Surplus income after taxes is reinvested in the taxable account. \"Savings needed\" is the smallest balance that would fund the goal through your plan-to age. Everything is in today's dollars, using today's tax tables for every year. Simplifications: investment income is taxed only when sold; a couple stays married filing jointly for the whole plan (no survivor modeling); Social Security spousal and survivor benefits, the senior deduction added in 2025, the 3.8% net investment income tax, Medicare premiums and state-specific rules are not included; the 10% early-withdrawal tax applies before age 59 with no exceptions.",
         links: []
+    )
+
+    static let socialSecurity = RetirementSource(
+        id: "social-security",
+        title: "Social Security benefits",
+        usage: "If you enter your statement's benefit at full retirement age, that is used directly. Otherwise a rough estimate applies the 2026 benefit formula (90% of the first $1,286 of average monthly earnings, 32% up to $7,749, and 15% above) to your gross income, capped at the $184,500 taxable maximum, as if you earned it for 35 years. Full retirement age is 67 for people born in 1960 or later. Claiming early reduces the benefit by 5/9 of 1% per month for the first 36 months and 5/12 of 1% for each month beyond that. Waiting past full retirement age adds 8% a year until 70. Benefits are assumed to keep pace with inflation.",
+        links: [
+            .init(label: "SSA: Primary insurance amount formula", url: "https://www.ssa.gov/oact/cola/piaformula.html"),
+            .init(label: "SSA: Contribution and benefit base", url: "https://www.ssa.gov/oact/cola/cbb.html"),
+            .init(label: "SSA: Early or late retirement", url: "https://www.ssa.gov/oact/quickcalc/early_late.html"),
+            .init(label: "SSA: Full retirement age and reductions", url: "https://www.ssa.gov/benefits/retirement/planner/agereduction.html")
+        ]
+    )
+
+    static let federalTax = RetirementSource(
+        id: "federal-tax",
+        title: "Federal income tax (2026 tables)",
+        usage: "Tax uses the 2026 brackets for single filers or married filing jointly, the 2026 standard deduction ($16,100 single, $32,200 joint) plus the extra amount for each person 65 or older ($2,050 unmarried, $1,650 each if married), and the 2026 long-term capital gains thresholds: 0% up to $49,450 (single) or $98,900 (joint), and 15% up to $545,500 or $613,700. Withdrawals from pre-tax accounts are ordinary income. Only the gain in taxable-account sales is taxed, using your cost basis. Roth withdrawals are tax-free. The tables are refreshed each year.",
+        links: [
+            .init(label: "IRS Revenue Procedure 2025-32 (2026 adjustments)", url: "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf")
+        ]
+    )
+
+    static let socialSecurityTax = RetirementSource(
+        id: "social-security-tax",
+        title: "Taxes on Social Security",
+        usage: "The taxable part of Social Security follows IRS Publication 915, Worksheet 1: half your benefits plus your other income is compared with $25,000 (single) or $32,000 (joint). Up to 50% of benefits become taxable above that, and up to 85% above $34,000 (single) or $44,000 (joint). These thresholds are not adjusted for inflation by law, and the app keeps them fixed.",
+        links: [
+            .init(label: "IRS Publication 915", url: "https://www.irs.gov/publications/p915")
+        ]
+    )
+
+    static let requiredDistributions = RetirementSource(
+        id: "required-distributions",
+        title: "Required minimum distributions and early withdrawals",
+        usage: "Pre-tax accounts must pay out a required amount each year starting at age 73, or 75 for anyone born in 1960 or later (SECURE 2.0). The law is ambiguous for people born in 1959, so the app uses 73. The amount is the prior balance divided by the IRS Uniform Lifetime Table factor (for example 26.5 at age 73). Pre-tax withdrawals before about age 59½ add a 10% additional tax, and the app doesn't model the exceptions.",
+        links: [
+            .init(label: "IRS Publication 590-B (Table III, Uniform Lifetime)", url: "https://www.irs.gov/publications/p590b"),
+            .init(label: "IRS: Required minimum distributions", url: "https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-required-minimum-distributions-rmds")
+        ]
     )
 
     static let contributionLimits = RetirementSource(
@@ -70,7 +110,8 @@ enum RetirementSources {
     )
 
     static let all: [RetirementSource] = [
-        targetIncome, projection, returnAssumptions, withdrawalRate, contributionLimits, accountTaxTreatment
+        targetIncome, projection, returnAssumptions, retirementIncome, socialSecurity, federalTax,
+        socialSecurityTax, requiredDistributions, contributionLimits, accountTaxTreatment
     ]
 }
 

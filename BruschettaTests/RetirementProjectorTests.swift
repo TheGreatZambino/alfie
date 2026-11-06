@@ -5,7 +5,7 @@ import Foundation
 /// Expected values are computed independently of the engine, either by hand or from the
 /// standard compound-interest formulas noted on each test.
 struct RetirementProjectorTests {
-    private let flat = ProjectionAssumptions(stockRealReturn: 0, bondRealReturn: 0, withdrawalRate: 0.04)
+    private let flat = ProjectionAssumptions(stockRealReturn: 0, bondRealReturn: 0)
 
     private func account(balance: Double = 0, monthly: Double = 0, stock: Double = 1, months: Int) -> ProjectionAccount {
         ProjectionAccount(balance: balance, monthlyContribution: monthly, stockFraction: stock, contributionMonths: months)
@@ -23,7 +23,7 @@ struct RetirementProjectorTests {
     @Test
     func lumpSumCompoundsAtTheAnnualRate() {
         // Compound interest: FV = PV * (1 + r)^n. $10,000 at 7% for 10 years = $19,671.51.
-        let assumptions = ProjectionAssumptions(stockRealReturn: 0.07, bondRealReturn: 0, withdrawalRate: 0.04)
+        let assumptions = ProjectionAssumptions(stockRealReturn: 0.07, bondRealReturn: 0)
         let value = RetirementProjector.futureValue(of: account(balance: 10_000, months: 0), assumptions: assumptions, totalMonths: 120)
         #expect(abs(value - 10_000 * pow(1.07, 10)) < 0.01)
         #expect(abs(value - 19_671.51) < 0.01)
@@ -33,7 +33,7 @@ struct RetirementProjectorTests {
     func contributionsMatchTheFutureValueOfAnAnnuityFormula() {
         // Future value of an ordinary annuity: FV = P * ((1 + i)^n - 1) / i, with i the monthly
         // rate equivalent to a 6% annual return.
-        let assumptions = ProjectionAssumptions(stockRealReturn: 0.06, bondRealReturn: 0, withdrawalRate: 0.04)
+        let assumptions = ProjectionAssumptions(stockRealReturn: 0.06, bondRealReturn: 0)
         let i = pow(1.06, 1.0 / 12) - 1
         let expected = 1_000 * (pow(1 + i, 120) - 1) / i
         let value = RetirementProjector.futureValue(of: account(monthly: 1_000, months: 120), assumptions: assumptions, totalMonths: 120)
@@ -92,7 +92,7 @@ struct RetirementProjectorTests {
     func lowAndHighScenariosBracketTheExpectedCase() {
         let outlook = RetirementProjector.outlook(
             accounts: [account(balance: 50_000, monthly: 800, stock: 0.6, months: 240)],
-            assumptions: .defaults, totalMonths: 240, targetAnnualIncome: 80_000
+            assumptions: .defaults, totalMonths: 240
         )
         #expect(outlook.low < outlook.expected)
         #expect(outlook.expected < outlook.high)
@@ -101,18 +101,11 @@ struct RetirementProjectorTests {
     // MARK: - Goal math
 
     @Test
-    func requiredNestEggIsIncomeOverWithdrawalRate() {
-        // $80,000 a year at a 4% withdrawal rate needs $2,000,000.
-        #expect(RetirementProjector.requiredNestEgg(targetAnnualIncome: 80_000, withdrawalRate: 0.04) == 2_000_000)
-        #expect(RetirementProjector.requiredNestEgg(targetAnnualIncome: 80_000, withdrawalRate: 0) == 0)
-    }
-
-    @Test
     func contributionNeededActuallyClosesTheGap() {
         let shortfall = 250_000.0
         let monthly = RetirementProjector.monthlyContributionNeeded(shortfall: shortfall, annualReturn: 0.04, months: 180)
         #expect(monthly != nil)
-        let assumptions = ProjectionAssumptions(stockRealReturn: 0.04, bondRealReturn: 0.04, withdrawalRate: 0.04)
+        let assumptions = ProjectionAssumptions(stockRealReturn: 0.04, bondRealReturn: 0.04)
         let grown = RetirementProjector.futureValue(of: account(monthly: monthly ?? 0, months: 180), assumptions: assumptions, totalMonths: 180)
         #expect(abs(grown - shortfall) < 0.01)
     }
@@ -127,39 +120,6 @@ struct RetirementProjectorTests {
     func noContributionNeededWithoutAGapOrTime() {
         #expect(RetirementProjector.monthlyContributionNeeded(shortfall: 0, annualReturn: 0.04, months: 100) == nil)
         #expect(RetirementProjector.monthlyContributionNeeded(shortfall: 1_000, annualReturn: 0.04, months: 0) == nil)
-    }
-
-    @Test
-    func statusThresholds() {
-        #expect(RetirementProjector.status(forProgress: 1.0) == .onTrack)
-        #expect(RetirementProjector.status(forProgress: 1.4) == .onTrack)
-        #expect(RetirementProjector.status(forProgress: 0.8) == .close)
-        #expect(RetirementProjector.status(forProgress: 0.79) == .behind)
-    }
-
-    @Test
-    func outlookReportsGapAndStatus() {
-        // $400k growing at 0% with no contributions against a $2M goal is 20% of the way there.
-        let outlook = RetirementProjector.outlook(
-            accounts: [account(balance: 400_000, months: 0)],
-            assumptions: flat, totalMonths: 120, targetAnnualIncome: 80_000
-        )
-        #expect(outlook.requiredNestEgg == 2_000_000)
-        #expect(abs((outlook.progress ?? 0) - 0.2) < 1e-9)
-        #expect(outlook.status == .behind)
-        #expect(outlook.gap == 1_600_000)
-        // Gap spread evenly over 120 months at 0% growth.
-        #expect(abs((outlook.extraMonthlyNeeded ?? 0) - 1_600_000.0 / 120) < 0.001)
-    }
-
-    @Test
-    func noGapMeansNoExtraSavingNeeded() {
-        let outlook = RetirementProjector.outlook(
-            accounts: [account(balance: 3_000_000, months: 0)],
-            assumptions: flat, totalMonths: 120, targetAnnualIncome: 80_000
-        )
-        #expect(outlook.status == .onTrack)
-        #expect(outlook.extraMonthlyNeeded == nil)
     }
 
     // MARK: - Contribution limits (IRS Notice 2025-67, 2026 limits)

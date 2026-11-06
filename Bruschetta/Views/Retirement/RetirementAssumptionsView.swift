@@ -18,11 +18,25 @@ struct RetirementAssumptionsView: View {
             }
 
             Section {
-                slider(title: "Withdrawal rate", value: $plan.withdrawalRatePercent, range: 2.5...6, step: 0.25, format: "%.2f%%")
+                Stepper(value: $plan.planToAge, in: 80...105) {
+                    HStack {
+                        Text("Plan to age")
+                        Spacer()
+                        Text("\(plan.planToAge)").fontWeight(.semibold).foregroundStyle(Color.ink)
+                    }
+                }
             } header: {
-                Text("Spending in retirement")
+                Text("How long it needs to last")
             } footer: {
-                Text("Savings needed = yearly income goal ÷ withdrawal rate. A lower rate is more cautious and needs more savings.")
+                Text("The plan must fund your income goal until the younger of you reaches this age.")
+            }
+
+            Section {
+                slider(title: "State income tax", value: $plan.stateTaxRatePercent, range: 0...13, step: 0.5, format: "%.1f%%")
+            } header: {
+                Text("State tax")
+            } footer: {
+                Text("A flat rate applied to withdrawals from pre-tax and taxable accounts. Most states don't tax Social Security, so it isn't included. Use 0% if your state has no income tax.")
             }
 
             Section {

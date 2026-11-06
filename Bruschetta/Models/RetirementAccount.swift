@@ -72,6 +72,8 @@ final class RetirementAccount {
     var monthlyEmployerContribution: Double = 0
     /// Share of the account held in stocks, 0 to 100. The rest is treated as bonds.
     var stockAllocationPercent: Double = 60
+    /// For taxable accounts: what was paid in. Nil means unknown, treated as the balance (no gain).
+    var costBasis: Double?
 
     var type: RetirementAccountType {
         get { RetirementAccountType(rawValue: typeRaw) ?? .other }
